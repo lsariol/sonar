@@ -3,10 +3,12 @@ package containers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -65,6 +67,10 @@ func (c *Client) get(ctx context.Context, path string, v any) error {
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			err = ue.Err
+		}
 		return fmt.Errorf("proxy: %w: is sonar-proxy running, with its socket at %s?", err, c.socket)
 	}
 	defer resp.Body.Close()

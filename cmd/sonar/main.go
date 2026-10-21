@@ -14,10 +14,14 @@ import (
 	"time"
 	_ "time/tzdata" // TZ works on an image without zoneinfo
 
+	"github.com/lsariol/sonar/internal/agent"
+	"github.com/lsariol/sonar/internal/checks"
 	"github.com/lsariol/sonar/internal/cli"
 	"github.com/lsariol/sonar/internal/config"
 	"github.com/lsariol/sonar/internal/containers"
+	"github.com/lsariol/sonar/internal/host"
 	"github.com/lsariol/sonar/internal/proxy"
+	"github.com/lsariol/sonar/internal/snapshot"
 )
 
 // roles are the parts of Sonar the compose file starts, one per container.
@@ -35,6 +39,8 @@ func main() {
 		printUsage(os.Stdout)
 	case args[0] == "proxy":
 		runProxy()
+	case args[0] == "agent":
+		runAgent()
 	case slices.Contains(roles, args[0]):
 		fatal(notBuilt(args[0]))
 	case args[0] == "health":
@@ -75,6 +81,41 @@ func runProxy() {
 	log.Info("Sonar stopped")
 }
 
+// runAgent runs sonar-agent until SIGINT or SIGTERM (docker stop).
+func runAgent() {
+	cfg := loadConfig()
+	log := newLogger("agent")
+	log.Info("Sonar starting", "version", cfg.Version, "env", cfg.Env)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	a := agent.New(agent.Options{
+		Version:  cfg.Version,
+		StateDir: snapshot.Dir,
+		Host:     host.Reader{Root: "/"},
+		DiskPath: "/",
+		Docker:   containers.NewClient(containers.Socket),
+		Checker:  checks.New(cfg.Version),
+		Log:      log,
+	})
+	if err := a.Run(ctx); err != nil {
+		fatal(err)
+	}
+	log.Info("Sonar stopped")
+}
+
+// agentHealthy is nil while the agent's snapshot is fresh.
+func agentHealthy() error {
+	s, err := snapshot.Read(snapshot.Dir)
+	if err != nil {
+		return err
+	}
+	if age := time.Since(s.GeneratedAt); !s.Fresh(time.Now()) {
+		return fmt.Errorf("the snapshot is %s old (written %s): is sonar-agent stuck?", age.Round(time.Second), s.GeneratedAt.Format(time.RFC3339))
+	}
+	return nil
+}
+
 // runHealth is a container's healthcheck: 0 when the named part is healthy.
 func runHealth(args []string) int {
 	if len(args) != 1 || !slices.Contains(roles, args[0]) {
@@ -88,6 +129,8 @@ func runHealth(args []string) int {
 	switch args[0] {
 	case "proxy":
 		err = containers.NewClient(containers.Socket).Healthy(ctx)
+	case "agent":
+		err = agentHealthy()
 	default:
 		err = notBuilt(args[0])
 	}
