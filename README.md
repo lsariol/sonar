@@ -23,6 +23,8 @@ Needs Go 1.27.1 and Docker Desktop.
 ```bash
 go test ./...                                              # the tests
 docker build --target test .                               # as Lighthouse runs them, with -race
+scripts/test-db.sh up && eval "$(scripts/test-db.sh env)"  # a throwaway Postgres: the database tests run too
+scripts/test-db.sh down                                    # remove it
 docker compose -f compose.yaml -f compose.dev.yaml up --build
 ```
 

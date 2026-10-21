@@ -137,6 +137,32 @@ func Project(services, checks []State) (State, Evidence) {
 	return Up, ContainerOnly
 }
 
+// Day is a day's state from its minute counts: the worst state that lasted at
+// least 5 minutes in total. ok is false (no data) when fewer than half of the
+// window's minutes were observed; window is 1440, or the minutes so far today.
+func Day(up, degraded, down, window int) (s State, ok bool) {
+	if window <= 0 || (up+degraded+down)*2 < window {
+		return Unknown, false
+	}
+	switch {
+	case down >= 5:
+		return Down, true
+	case down+degraded >= 5:
+		return Degraded, true
+	}
+	return Up, true
+}
+
+// Uptime is the percentage of observed minutes that were up or degraded
+// (degraded still answered). ok is false when nothing was observed.
+func Uptime(up, degraded, down int) (pct float64, ok bool) {
+	observed := up + degraded + down
+	if observed == 0 {
+		return 0, false
+	}
+	return float64(up+degraded) / float64(observed) * 100, true
+}
+
 func known(states []State) []State {
 	var out []State
 	for _, s := range states {

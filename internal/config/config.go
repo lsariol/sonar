@@ -32,6 +32,16 @@ func Load(getenv func(string) string) (Config, error) {
 	return Config{Env: env, Version: version}, nil
 }
 
+// Secret returns the environment variable name, which carries the Cove key of
+// the same name; it's an error when it's missing.
+func Secret(getenv func(string) string, name string) (string, error) {
+	v := strings.TrimSpace(getenv(name))
+	if v == "" {
+		return "", fmt.Errorf("config: %s isn't set: in prod Lighthouse fills it from Cove, so the compose file must pass it through; locally it comes from .env", name)
+	}
+	return v, nil
+}
+
 // buildVersion is "dev-<commit>" when the binary was built from a git
 // checkout, otherwise "dev".
 func buildVersion() string {

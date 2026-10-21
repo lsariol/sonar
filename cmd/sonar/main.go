@@ -22,6 +22,7 @@ import (
 	"github.com/lsariol/sonar/internal/host"
 	"github.com/lsariol/sonar/internal/proxy"
 	"github.com/lsariol/sonar/internal/snapshot"
+	"github.com/lsariol/sonar/internal/store"
 )
 
 // roles are the parts of Sonar the compose file starts, one per container.
@@ -87,6 +88,15 @@ func runAgent() {
 	log := newLogger("agent")
 	log.Info("Sonar starting", "version", cfg.Version, "env", cfg.Env)
 
+	migratorURL, err := config.Secret(os.Getenv, "SONAR_DATABASE_MIGRATOR_URL")
+	if err != nil {
+		fatal(err)
+	}
+	appURL, err := config.Secret(os.Getenv, "SONAR_DATABASE_URL")
+	if err != nil {
+		fatal(err)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	a := agent.New(agent.Options{
@@ -97,6 +107,21 @@ func runAgent() {
 		Docker:   containers.NewClient(containers.Socket),
 		Checker:  checks.New(cfg.Version),
 		Log:      log,
+		OpenStore: func(ctx context.Context) (agent.Store, error) {
+			if err := store.Migrate(ctx, migratorURL, log); err != nil {
+				return nil, err
+			}
+			db, err := store.Connect(ctx, appURL, "SONAR_DATABASE_URL")
+			if err != nil {
+				return nil, err
+			}
+			if err := db.CheckSchemaVersion(ctx); err != nil {
+				db.Close()
+				return nil, err
+			}
+			log.Info("database ready")
+			return db, nil
+		},
 	})
 	if err := a.Run(ctx); err != nil {
 		fatal(err)

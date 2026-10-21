@@ -19,6 +19,7 @@ import (
 	"github.com/lsariol/sonar/internal/host"
 	"github.com/lsariol/sonar/internal/snapshot"
 	"github.com/lsariol/sonar/internal/state"
+	"github.com/lsariol/sonar/internal/store"
 )
 
 const (
@@ -67,6 +68,9 @@ type Options struct {
 	Checker  Checker
 	Log      *slog.Logger
 	Now      func() time.Time // time.Now unless set
+
+	// OpenStore migrates and connects to the database; nil runs without one.
+	OpenStore func(ctx context.Context) (Store, error)
 }
 
 // Agent collects and writes the snapshot.
@@ -93,6 +97,9 @@ type Agent struct {
 	targets []target
 	refused []string // labels that can't be checked, for attention
 	checks  map[target]*checkStatus
+
+	buckets map[time.Time]*bucket // minutes still being added up
+	pending []store.Minute        // finished minutes waiting for the database
 }
 
 // collector is one source of data and how it's doing.
@@ -121,7 +128,7 @@ func New(opts Options) *Agent {
 	if opts.ReadDisk == nil {
 		opts.ReadDisk = host.ReadDisk
 	}
-	return &Agent{
+	a := &Agent{
 		opts: opts,
 		collectors: map[string]*collector{
 			hostCollector:   {every: hostEvery},
@@ -133,7 +140,12 @@ func New(opts Options) *Agent {
 		readings: make(map[string]containers.Stats),
 		usage:    make(map[string]snapshot.Usage),
 		checks:   make(map[target]*checkStatus),
+		buckets:  make(map[time.Time]*bucket),
 	}
+	if opts.OpenStore != nil {
+		a.collectors[databaseCollector] = &collector{every: time.Minute}
+	}
+	return a
 }
 
 // Run collects and writes the snapshot until ctx is cancelled.
@@ -171,6 +183,13 @@ func (a *Agent) Run(ctx context.Context) error {
 		a.sampleHost()
 		a.writeSnapshot()
 	})
+	if a.opts.OpenStore != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			a.runDatabase(ctx)
+		}()
+	}
 	wg.Wait()
 	return nil
 }
@@ -208,6 +227,7 @@ func (a *Agent) sampleHost() {
 	}
 	a.cpu, a.memory, a.load, a.uptime, a.hostAt = cpu, mem, load, uptime, a.opts.Now()
 	a.record(hostCollector, nil)
+	a.addHostMinute(a.hostAt)
 }
 
 func (a *Agent) sampleDisk(context.Context) {
@@ -240,16 +260,20 @@ func (a *Agent) sampleDocker(ctx context.Context) {
 	a.containers = list
 	a.updateTargets()
 	a.record(statsCollector, statsErr)
+	var grown map[string]counters
 	if statsErr == nil {
-		a.updateUsage(stats)
+		grown = a.updateUsage(stats)
 	}
+	a.addDockerMinute(a.opts.Now(), grown)
 }
 
-// updateUsage turns two readings of each container's counters into rates.
-// A container whose stats failed keeps its last reading for next time.
-func (a *Agent) updateUsage(answer containers.StatsAnswer) {
+// updateUsage turns two readings of each container's counters into rates,
+// and returns how much each counter grew. A container whose stats failed
+// keeps its last reading for next time.
+func (a *Agent) updateUsage(answer containers.StatsAnswer) map[string]counters {
 	readings := make(map[string]containers.Stats, len(answer.Stats))
 	usage := make(map[string]snapshot.Usage, len(answer.Stats))
+	grown := make(map[string]counters, len(answer.Stats))
 	for _, s := range answer.Stats {
 		u := snapshot.Usage{
 			MemoryBytes:   &s.MemoryBytes,
@@ -266,6 +290,12 @@ func (a *Agent) updateUsage(answer containers.StatsAnswer) {
 				u.BlkReadRate = rate(prev.BlkReadBytes, s.BlkReadBytes, secs)
 				u.BlkWriteRate = rate(prev.BlkWriteBytes, s.BlkWriteBytes, secs)
 			}
+			grown[s.ID] = counters{
+				netRx:    growth(prev.NetRxBytes, s.NetRxBytes),
+				netTx:    growth(prev.NetTxBytes, s.NetTxBytes),
+				blkRead:  growth(prev.BlkReadBytes, s.BlkReadBytes),
+				blkWrite: growth(prev.BlkWriteBytes, s.BlkWriteBytes),
+			}
 		}
 		readings[s.ID], usage[s.ID] = s, u
 	}
@@ -275,6 +305,16 @@ func (a *Agent) updateUsage(answer containers.StatsAnswer) {
 		}
 	}
 	a.readings, a.usage = readings, usage
+	return grown
+}
+
+// growth is how much a counter grew; after a reset (a restart) it counted
+// up from zero, so all of it is new.
+func growth(prev, cur uint64) uint64 {
+	if cur < prev {
+		return cur
+	}
+	return cur - prev
 }
 
 // rate is how fast a counter grew, per unit; nil when it went backwards (the
@@ -364,6 +404,7 @@ func (a *Agent) runChecks(ctx context.Context) {
 			st.failures = 0
 		}
 		st.state = state.Check(st.state, st.failures, r.Outcome == checks.Slow)
+		a.addCheckMinute(a.opts.Now(), t, r, st.state)
 	}
 	a.record(checksCollector, nil)
 }
@@ -387,6 +428,7 @@ func (a *Agent) record(name string, err error) {
 func (a *Agent) writeSnapshot() {
 	a.mu.Lock()
 	s := a.build()
+	a.addProjectMinute(s.GeneratedAt, s.Projects)
 	a.mu.Unlock()
 
 	err := snapshot.Write(a.opts.StateDir, s)

@@ -32,6 +32,16 @@ func TestLoadValues(t *testing.T) {
 	}
 }
 
+func TestSecret(t *testing.T) {
+	get := env(map[string]string{"SONAR_DATABASE_URL": " postgres://x "})
+	if v, err := Secret(get, "SONAR_DATABASE_URL"); err != nil || v != "postgres://x" {
+		t.Errorf("Secret = %q, %v", v, err)
+	}
+	if _, err := Secret(get, "SONAR_DATABASE_MIGRATOR_URL"); err == nil || !strings.Contains(err.Error(), "Cove") {
+		t.Errorf("missing: err = %v, want a hint about Cove", err)
+	}
+}
+
 func TestLoadRefusesUnknownEnv(t *testing.T) {
 	_, err := Load(env(map[string]string{"APP_ENV": "staging"}))
 	if err == nil || !strings.Contains(err.Error(), "APP_ENV") {

@@ -103,6 +103,39 @@ func TestProject(t *testing.T) {
 	}
 }
 
+func TestDay(t *testing.T) {
+	cases := []struct {
+		up, degraded, down, window int
+		want                       State
+		ok                         bool
+	}{
+		{1440, 0, 0, 1440, Up, true},
+		{1430, 6, 4, 1440, Degraded, true}, // 4 down minutes aren't enough for down
+		{1430, 0, 10, 1440, Down, true},
+		{1436, 2, 2, 1440, Up, true}, // 4 bad minutes in total: a blip
+		{1436, 2, 3, 1440, Degraded, true},
+		{700, 0, 0, 1440, Unknown, false}, // under half the day observed
+		{720, 0, 0, 1440, Up, true},
+		{300, 0, 0, 600, Up, true}, // today, 10 hours in
+		{0, 0, 0, 0, Unknown, false},
+	}
+	for _, tc := range cases {
+		got, ok := Day(tc.up, tc.degraded, tc.down, tc.window)
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("Day(%d, %d, %d, %d) = %v, %v; want %v, %v", tc.up, tc.degraded, tc.down, tc.window, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+func TestUptime(t *testing.T) {
+	if pct, ok := Uptime(1438, 1, 1); !ok || pct < 99.93 || pct > 99.94 {
+		t.Errorf("Uptime = %v, %v; want 99.93", pct, ok)
+	}
+	if _, ok := Uptime(0, 0, 0); ok {
+		t.Error("nothing observed: want ok false")
+	}
+}
+
 func TestStateJSON(t *testing.T) {
 	data, err := json.Marshal(map[string]State{"a": Degraded})
 	if err != nil || string(data) != `{"a":"degraded"}` {
