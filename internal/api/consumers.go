@@ -78,3 +78,31 @@ func (c consumer) may(s scope) bool {
 	}
 	return false
 }
+
+// ConsumerInfo is a consumer as `sonar consumers` shows it. It never holds the
+// token, only whether a usable one is set.
+type ConsumerInfo struct {
+	Name   string
+	Key    string
+	Scopes []string
+	Token  string // "present", "missing" or "too short"
+}
+
+// Consumers describes every consumer and its token's state.
+func Consumers(getenv func(string) string) []ConsumerInfo {
+	out := make([]ConsumerInfo, 0, len(consumers))
+	for _, c := range consumers {
+		info := ConsumerInfo{Name: c.Name, Key: c.Key, Token: "present"}
+		for _, s := range c.Scopes {
+			info.Scopes = append(info.Scopes, string(s))
+		}
+		switch token := strings.TrimSpace(getenv(c.Key)); {
+		case token == "":
+			info.Token = "missing"
+		case len(token) < minTokenLength:
+			info.Token = "too short"
+		}
+		out = append(out, info)
+	}
+	return out
+}

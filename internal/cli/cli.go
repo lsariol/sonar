@@ -9,14 +9,32 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
+
+	"github.com/lsariol/sonar/internal/api"
+	"github.com/lsariol/sonar/internal/snapshot"
+	"github.com/lsariol/sonar/internal/store"
 )
 
-// Options are the CLI's settings.
+// Options are the CLI's settings and where its data comes from.
 type Options struct {
 	Env     string
 	Version string
+
+	Snapshot  func() (snapshot.Snapshot, error)
+	OpenDB    func(ctx context.Context) (DB, error) // the reader's connection
+	Consumers func() []api.ConsumerInfo
+	Now       func() time.Time // time.Now unless set
+}
+
+// DB is the history, as the CLI reads it (sonar_reader).
+type DB interface {
+	ProjectDays(ctx context.Context, from, to time.Time) ([]store.DayCounts, error)
+	ResponseTimes(ctx context.Context, since time.Time) (map[string]int, error)
+	Migrations(ctx context.Context) ([]store.Migration, error)
+	CheckSchemaVersion(ctx context.Context) error
 }
 
 // CLI runs Sonar's commands, one at a time or as a shell.
@@ -31,11 +49,15 @@ type CLI struct {
 	commands []command
 	byName   map[string]*command
 
+	db   DB // opened on the first command that needs it
 	quit bool
 }
 
 // New returns a CLI with every command.
 func New(opts Options) *CLI {
+	if opts.Now == nil {
+		opts.Now = time.Now
+	}
 	c := &CLI{
 		opts:        opts,
 		prompt:      promptFor(opts.Env),
@@ -96,4 +118,30 @@ func report(err error) {
 		return
 	}
 	fail(err.Error())
+}
+
+// database returns the history's connection, opening it the first time.
+func (c *CLI) database(ctx context.Context) (DB, error) {
+	if c.db != nil {
+		return c.db, nil
+	}
+	if c.opts.OpenDB == nil {
+		return nil, errors.New("database: not available here: run the CLI in sonar-api (docker exec -it sonar-api /sonar shell)")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	db, err := c.opts.OpenDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	c.db = db
+	return db, nil
+}
+
+// snapshot returns the agent's latest snapshot.
+func (c *CLI) snapshot() (snapshot.Snapshot, error) {
+	if c.opts.Snapshot == nil {
+		return snapshot.Snapshot{}, errors.New("snapshot: not available here: run the CLI in sonar-api (docker exec -it sonar-api /sonar shell)")
+	}
+	return c.opts.Snapshot()
 }

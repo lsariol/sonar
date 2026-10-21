@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"embed"
@@ -8,7 +9,12 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"path"
+	"slices"
+	"strings"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib" // the "pgx" driver for database/sql, which goose uses
 	"github.com/pressly/goose/v3"
@@ -109,4 +115,53 @@ func latestMigration() (int64, error) {
 		latest = max(latest, v)
 	}
 	return latest, nil
+}
+
+// Migration is one of this build's migrations and when it was applied.
+type Migration struct {
+	Version   int64
+	Name      string
+	AppliedAt *time.Time // nil while pending
+}
+
+// Migrations lists this build's migrations, oldest first, with the time each
+// was applied. The reader may read the version table.
+func (s *Store) Migrations(ctx context.Context) ([]Migration, error) {
+	names, err := fs.Glob(embeddedMigrations, "migrations/*.sql")
+	if err != nil {
+		return nil, err
+	}
+	applied := make(map[int64]time.Time)
+	rows, err := s.pool.Query(ctx, `SELECT version_id, tstamp FROM sonar.goose_db_version WHERE is_applied AND version_id > 0`)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != undefinedTable {
+			return nil, fmt.Errorf("database: reading the migrations table: %w", err)
+		}
+	} else {
+		var v int64
+		var at time.Time
+		_, err = pgx.ForEachRow(rows, []any{&v, &at}, func() error {
+			applied[v] = at.UTC()
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("database: reading the migrations table: %w", err)
+		}
+	}
+
+	var out []Migration
+	for _, name := range names {
+		v, err := goose.NumericComponent(name)
+		if err != nil {
+			return nil, fmt.Errorf("migration %q: %w", name, err)
+		}
+		m := Migration{Version: v, Name: strings.TrimSuffix(path.Base(name), ".sql")}
+		if at, ok := applied[v]; ok {
+			m.AppliedAt = &at
+		}
+		out = append(out, m)
+	}
+	slices.SortFunc(out, func(a, b Migration) int { return cmp.Compare(a.Version, b.Version) })
+	return out, nil
 }

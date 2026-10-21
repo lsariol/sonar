@@ -252,8 +252,28 @@ func runCommand(args []string) int {
 	return 0
 }
 
+// cliOptions points the CLI at the snapshot, the database as the reader, and
+// the API's consumers: what sonar-api has. Elsewhere the commands that need
+// them say where to run instead.
 func cliOptions(cfg config.Config) cli.Options {
-	return cli.Options{Env: cfg.Env, Version: cfg.Version}
+	snaps := snapshot.NewCache(snapshot.Dir)
+	return cli.Options{
+		Env:      cfg.Env,
+		Version:  cfg.Version,
+		Snapshot: snaps.Load,
+		OpenDB: func(ctx context.Context) (cli.DB, error) {
+			url, err := config.Secret(os.Getenv, "SONAR_DATABASE_READER_URL")
+			if err != nil {
+				return nil, fmt.Errorf("%w (the CLI reads the history in sonar-api: docker exec -it sonar-api /sonar shell)", err)
+			}
+			db, err := store.Connect(ctx, url, "SONAR_DATABASE_READER_URL")
+			if err != nil {
+				return nil, err
+			}
+			return db, nil
+		},
+		Consumers: func() []api.ConsumerInfo { return api.Consumers(os.Getenv) },
+	}
 }
 
 func loadConfig() config.Config {

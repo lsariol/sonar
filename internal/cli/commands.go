@@ -68,6 +68,89 @@ var groupOrder = []string{groupOverview, groupChecks, groupHistory, groupSetup}
 func commandTable() []command {
 	return []command{
 		{
+			names:   []string{"status", "st"},
+			group:   groupOverview,
+			summary: "Is Sonar itself healthy?",
+			usages: []usage{
+				{"status", "Show Sonar's version, how old the agent's snapshot is, the database, and each collector (host, filesystem, docker, stats, checks, database) with its last reading. Prints one \"Needs attention\" line and exits non-zero when something is wrong."},
+			},
+			examples: []example{{"status", "after a deploy, or when the status page looks wrong"}},
+			run:      (*CLI).status,
+		},
+		{
+			names:   []string{"projects", "ls"},
+			group:   groupOverview,
+			summary: "Every project: state, uptime, response time",
+			usages: []usage{
+				{"projects", "List every compose project on the server: its state and what it rests on (an outside check, or Docker alone), its services, its uptime over 30 days with how much of that was observed, its response time over the last hour, and whether the status page shows it."},
+			},
+			examples: []example{{"projects", "the whole server at a glance"}},
+			run:      (*CLI).projects,
+		},
+		{
+			names:    []string{"project", "p"},
+			group:    groupOverview,
+			synopsis: "<name>",
+			summary:  "One project's services, containers and checks",
+			usages: []usage{
+				{"project <name>", "Show one project in detail: its state, uptime over 30 and 90 days, each service (state, CPU, memory, network), each container (state, health, version, image, start time, restarts) and its outside checks. Containers without a compose project are \"(none)\"."},
+			},
+			examples: []example{{"project plop", "why is plop degraded?"}, {"project sonar", "Sonar's own containers"}},
+			run:      (*CLI).project,
+			complete: (*CLI).projectNames,
+		},
+		{
+			names:   []string{"host"},
+			group:   groupOverview,
+			summary: "The server's CPU, memory, load and disk",
+			usages: []usage{
+				{"host", "Show the host's latest figures: CPU (overall and per core), memory and swap in use, load averages, how long it has been up, and the disk containers are stored on."},
+			},
+			run: (*CLI).host,
+		},
+		{
+			names:   []string{"checks"},
+			group:   groupChecks,
+			summary: "Public addresses checked from outside",
+			usages: []usage{
+				{"checks", "List every public address Sonar checks (from each service's com.mobasity.public-url label): its state, the last check's time, result and latency, and the last error. Labels Sonar refuses to check are listed with the reason."},
+			},
+			run: (*CLI).checks,
+		},
+		{
+			names:    []string{"days"},
+			group:    groupHistory,
+			synopsis: "<project> [--days N]",
+			summary:  "A project's day-by-day availability",
+			usages: []usage{
+				{"days <project>", "Show a project's last 30 days, oldest first, as the status page shows them: each UTC day's state (the worst one that lasted 5 minutes), its uptime, and how much of it was observed (\"no_data\" under half). Then its uptime over 30 and 90 days."},
+			},
+			flags:    []flag{{"--days N", "How many days, from 1 to 380 (the history kept). 30 unless given."}},
+			examples: []example{{"days plop", "the last 30 days"}, {"days plop --days 90", "the strip on the status page"}},
+			run:      (*CLI).days,
+			complete: (*CLI).projectNames,
+		},
+		{
+			names:   []string{"consumers"},
+			group:   groupSetup,
+			summary: "Who may use the API, and their tokens",
+			usages: []usage{
+				{"consumers", "List the API's consumers: each one's Cove key, what it may read, and whether its token is set (never the token itself). Consumers are defined in Sonar's code; their tokens come from Cove."},
+			},
+			run: (*CLI).consumers,
+		},
+		{
+			names:    []string{"migrate"},
+			group:    groupSetup,
+			synopsis: "status",
+			summary:  "The database migrations and when each ran",
+			usages: []usage{
+				{"migrate status", "List this version's database migrations and when each was applied. sonar-agent applies them when it starts; one still pending means it couldn't."},
+			},
+			run:      (*CLI).migrate,
+			complete: func(*CLI) []string { return []string{"status"} },
+		},
+		{
 			names:   []string{"version"},
 			group:   groupSetup,
 			summary: "Sonar's version",
@@ -150,7 +233,7 @@ func (c *CLI) overview() string {
 			fmt.Fprintf(&b, "  %-*s  %s\n", width, l.left, l.right)
 		}
 	}
-	b.WriteString("\nType \"help <command>\" for details and examples, e.g. \"help version\".")
+	b.WriteString("\nType \"help <command>\" for details and examples, e.g. \"help days\".")
 	return b.String()
 }
 

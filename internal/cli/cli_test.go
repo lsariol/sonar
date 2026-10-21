@@ -53,13 +53,21 @@ func TestHelpFitsEightyColumns(t *testing.T) {
 	}
 }
 
-func TestOverviewSkipsEmptyGroups(t *testing.T) {
+func TestOverviewGroups(t *testing.T) {
 	o := New(Options{}).overview()
-	if !strings.Contains(o, groupSetup+":") {
-		t.Errorf("overview is missing %q:\n%s", groupSetup, o)
+	last := -1
+	for _, g := range groupOrder {
+		i := strings.Index(o, g+":")
+		if i < 0 || i < last {
+			t.Errorf("group %q missing or out of order:\n%s", g, o)
+		}
+		last = i
 	}
-	if strings.Contains(o, groupChecks+":") {
-		t.Errorf("overview shows the empty group %q:\n%s", groupChecks, o)
+
+	c := New(Options{})
+	c.commands = slices.DeleteFunc(c.commands, func(cmd command) bool { return cmd.group == groupChecks })
+	if strings.Contains(c.overview(), groupChecks+":") {
+		t.Error("an empty group should be left out")
 	}
 }
 

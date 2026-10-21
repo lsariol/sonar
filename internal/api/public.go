@@ -15,8 +15,8 @@ import (
 // with a compose project name does.
 var excluded = []string{"sparkdb", "cloudflared"}
 
-// isPublic reports whether a project may appear in status:read answers.
-func isPublic(project string) bool {
+// IsPublic reports whether a project may appear in status:read answers.
+func IsPublic(project string) bool {
 	return project != "" && !slices.Contains(excluded, project)
 }
 
@@ -32,7 +32,7 @@ type statusAnswer struct {
 
 type overallStatus struct {
 	State     string `json:"state"`
-	Uptime30d uptime `json:"uptime_30d"`
+	Uptime30d Uptime `json:"uptime_30d"`
 }
 
 type projectStatus struct {
@@ -40,17 +40,20 @@ type projectStatus struct {
 	State      string     `json:"state"`
 	Evidence   string     `json:"evidence"`
 	ResponseMs *int       `json:"response_ms"`
-	Uptime30d  uptime     `json:"uptime_30d"`
-	Uptime90d  uptime     `json:"uptime_90d"`
-	Days       []dayState `json:"days"`
+	Uptime30d  Uptime     `json:"uptime_30d"`
+	Uptime90d  Uptime     `json:"uptime_90d"`
+	Days       []DayState `json:"days"`
 }
 
-type uptime struct {
+// Uptime is the share of observed time a project answered, and how much of
+// the window was observed.
+type Uptime struct {
 	Pct         *float64 `json:"pct"` // nil under half coverage
 	CoveragePct float64  `json:"coverage_pct"`
 }
 
-type dayState struct {
+// DayState is one UTC day of a project's history.
+type DayState struct {
 	Date        string   `json:"date"`
 	State       string   `json:"state"`
 	UptimePct   *float64 `json:"uptime_pct"`
@@ -113,8 +116,8 @@ func midnight(t time.Time) time.Time {
 
 // uptimeOver is uptime and coverage from summed minute counts over a window
 // of the given number of minutes.
-func uptimeOver(up, degraded, down, minutes int) uptime {
-	u := uptime{CoveragePct: round(pct(up+degraded+down, minutes), 1)}
+func uptimeOver(up, degraded, down, minutes int) Uptime {
+	u := Uptime{CoveragePct: round(pct(up+degraded+down, minutes), 1)}
 	if (up+degraded+down)*2 >= minutes {
 		if p, ok := state.Uptime(up, degraded, down); ok {
 			p = round(p, 2)
@@ -124,9 +127,10 @@ func uptimeOver(up, degraded, down, minutes int) uptime {
 	return u
 }
 
-// projectDays builds a project's strip of days, oldest first, from its daily
-// rows, and its uptime over the last 30 and 90 days.
-func projectDays(now time.Time, days int, rows []store.DayCounts) (strip []dayState, up30, up90 uptime) {
+// ProjectDays builds a project's strip of days, oldest first, from its daily
+// rows, and its uptime over the last 30 and 90 days. The CLI shows the same
+// figures, so the status page and `sonar days` always agree.
+func ProjectDays(now time.Time, days int, rows []store.DayCounts) (strip []DayState, up30, up90 Uptime) {
 	byDay := make(map[time.Time]store.DayCounts, len(rows))
 	for _, r := range rows {
 		byDay[midnight(r.Day)] = r
@@ -134,7 +138,7 @@ func projectDays(now time.Time, days int, rows []store.DayCounts) (strip []daySt
 	today := midnight(now)
 	sinceMidnight := max(1, int(now.Sub(today)/time.Minute))
 
-	strip = make([]dayState, 0, days)
+	strip = make([]DayState, 0, days)
 	w := windowOf(now, days)
 	for d := 0; d < days; d++ {
 		date := w.first.AddDate(0, 0, d)
@@ -144,7 +148,7 @@ func projectDays(now time.Time, days int, rows []store.DayCounts) (strip []daySt
 		}
 		r := byDay[date]
 		observed := r.Up + r.Degraded + r.Down
-		ds := dayState{Date: date.Format(time.DateOnly), State: "no_data", CoveragePct: round(pct(observed, minutes), 1)}
+		ds := DayState{Date: date.Format(time.DateOnly), State: "no_data", CoveragePct: round(pct(observed, minutes), 1)}
 		if s, ok := state.Day(r.Up, r.Degraded, r.Down, minutes); ok {
 			ds.State = publicState(s)
 			if p, ok := state.Uptime(r.Up, r.Degraded, r.Down); ok {
@@ -155,7 +159,7 @@ func projectDays(now time.Time, days int, rows []store.DayCounts) (strip []daySt
 		strip = append(strip, ds)
 	}
 
-	sum := func(window window) uptime {
+	sum := func(window window) Uptime {
 		var up, degraded, down int
 		for date, r := range byDay {
 			if !date.Before(window.first) {
@@ -186,14 +190,14 @@ func buildStatus(now time.Time, snap *snapshot.Snapshot, days int, rows []store.
 	var up, degraded, down, count int
 	if snap != nil {
 		for _, p := range snap.Projects {
-			if !isPublic(p.Project) {
+			if !IsPublic(p.Project) {
 				continue
 			}
 			st := p.State
 			if !fresh {
 				st = state.Unknown
 			}
-			strip, up30, up90 := projectDays(now, days, byProject[p.Project])
+			strip, up30, up90 := ProjectDays(now, days, byProject[p.Project])
 			ps := projectStatus{Project: p.Project, State: publicState(st), Evidence: string(p.Evidence),
 				Uptime30d: up30, Uptime90d: up90, Days: strip}
 			if ms, ok := response[p.Project]; ok {
