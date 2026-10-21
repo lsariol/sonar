@@ -1,0 +1,10 @@
+[
+  {"Id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Names": ["/plop"], "Image": "plop-plop", "ImageID": "sha256:SECRET-MARKER-imageid", "Command": "/plop --token SECRET-MARKER-cmd", "Created": 1761000000, "State": "running", "Status": "Up 3 hours (healthy)",
+   "Labels": {"com.docker.compose.project": "plop", "com.docker.compose.service": "plop", "com.docker.compose.oneoff": "False", "com.mobasity.public-url": "https://plop.mobasity.com", "com.mobasity.version": "v1.4.0", "com.example.secret": "SECRET-MARKER-label"},
+   "Mounts": [{"Type": "bind", "Source": "/srv/server/storage/plop/SECRET-MARKER-mount", "Destination": "/data"}]},
+  {"Id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "Names": ["/plop-plop-run-1"], "Image": "plop-plop", "Created": 1761000100, "State": "exited", "Status": "Exited (0) 2 hours ago",
+   "Labels": {"com.docker.compose.project": "plop", "com.docker.compose.service": "plop", "com.docker.compose.oneoff": "True"}},
+  {"Id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "Names": ["/scratchpad"], "Image": "alpine:3.24", "Created": 1761000200, "State": "exited", "Status": "Exited (137) 1 hour ago", "Labels": {}},
+  {"Id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "Names": ["/lys"], "Image": "lys-lys", "Created": 1761000300, "State": "running", "Status": "Up 1 hour",
+   "Labels": {"com.docker.compose.project": "lys", "com.docker.compose.service": "lys", "com.mobasity.version": "v2.0.1"}}
+]

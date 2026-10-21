@@ -1,0 +1,7 @@
+{
+  "Id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "Created": "2026-10-21T10:00:00Z", "Path": "sh", "Args": [],
+  "State": {"Status": "exited", "Running": false, "ExitCode": 137, "StartedAt": "2026-10-21T10:00:01Z", "FinishedAt": "2026-10-21T11:00:00Z"},
+  "Name": "/scratchpad", "RestartCount": 0,
+  "HostConfig": {"RestartPolicy": {"Name": "", "MaximumRetryCount": 0}, "NanoCpus": 0, "CpuQuota": 0, "CpuPeriod": 0, "Memory": 0},
+  "Config": {"Env": ["SECRET=SECRET-MARKER-env"], "Cmd": ["sh"], "Image": "alpine:3.24", "Labels": {}}
+}

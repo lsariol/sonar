@@ -1,0 +1,8 @@
+{
+  "Id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "Created": "2026-10-21T11:00:00Z", "Path": "/lys", "Args": [],
+  "State": {"Status": "running", "Running": true, "ExitCode": 0, "StartedAt": "2026-10-21T11:00:02Z", "FinishedAt": "2026-10-21T10:59:58Z"},
+  "Name": "/lys", "RestartCount": 0,
+  "HostConfig": {"RestartPolicy": {"Name": "unless-stopped"}, "NanoCpus": 0, "CpuQuota": 50000, "CpuPeriod": 100000, "Memory": 0},
+  "Config": {"Env": ["LYS_TWITCH_CLIENT_SECRET=SECRET-MARKER-twitch"], "Cmd": ["/lys"], "Image": "lys-lys",
+             "Labels": {"com.docker.compose.project": "lys", "com.docker.compose.service": "lys", "com.mobasity.version": "v2.0.1"}}
+}

@@ -1,0 +1,8 @@
+{
+  "name": "/lys", "id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "read": "2026-10-21T12:00:00.7Z",
+  "pids_stats": {"current": 5},
+  "blkio_stats": {"io_service_bytes_recursive": [{"major": 8, "minor": 0, "op": "Read", "value": 10}, {"major": 8, "minor": 0, "op": "Write", "value": 20}, {"major": 8, "minor": 0, "op": "Total", "value": 30}]},
+  "cpu_stats": {"cpu_usage": {"total_usage": 5000000000}},
+  "memory_stats": {"usage": 50000000, "limit": 8000000000, "stats": {"total_inactive_file": 10000000}},
+  "networks": {"eth0": {"rx_bytes": 100, "tx_bytes": 200}}
+}

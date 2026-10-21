@@ -6,14 +6,18 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"slices"
 	"syscall"
+	"time"
 	_ "time/tzdata" // TZ works on an image without zoneinfo
 
 	"github.com/lsariol/sonar/internal/cli"
 	"github.com/lsariol/sonar/internal/config"
+	"github.com/lsariol/sonar/internal/containers"
+	"github.com/lsariol/sonar/internal/proxy"
 )
 
 // roles are the parts of Sonar the compose file starts, one per container.
@@ -29,6 +33,8 @@ func main() {
 	switch {
 	case args[0] == "-h" || args[0] == "--help":
 		printUsage(os.Stdout)
+	case args[0] == "proxy":
+		runProxy()
 	case slices.Contains(roles, args[0]):
 		fatal(notBuilt(args[0]))
 	case args[0] == "health":
@@ -55,14 +61,55 @@ Run "sonar help" to list the CLI commands.
 `)
 }
 
+// runProxy runs sonar-proxy until SIGINT or SIGTERM (docker stop).
+func runProxy() {
+	cfg := loadConfig()
+	log := newLogger("proxy")
+	log.Info("Sonar starting", "version", cfg.Version, "env", cfg.Env)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := proxy.New(proxy.DockerSocket, log).Serve(ctx, containers.Socket); err != nil {
+		fatal(err)
+	}
+	log.Info("Sonar stopped")
+}
+
 // runHealth is a container's healthcheck: 0 when the named part is healthy.
 func runHealth(args []string) int {
 	if len(args) != 1 || !slices.Contains(roles, args[0]) {
 		fmt.Fprintln(os.Stderr, "! Usage: sonar health <proxy|agent|api>")
 		return 1
 	}
-	fmt.Fprintf(os.Stderr, "sonar health: %v\n", notBuilt(args[0]))
-	return 1
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var err error
+	switch args[0] {
+	case "proxy":
+		err = containers.NewClient(containers.Socket).Healthy(ctx)
+	default:
+		err = notBuilt(args[0])
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sonar health: %v\n", err)
+		return 1
+	}
+	fmt.Println("healthy")
+	return 0
+}
+
+// newLogger logs text lines to stderr with UTC timestamps, tagged with part.
+func newLogger(part string) *slog.Logger {
+	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.TimeKey && len(groups) == 0 {
+				a.Value = slog.TimeValue(a.Value.Time().UTC())
+			}
+			return a
+		},
+	})
+	return slog.New(h).With("part", part)
 }
 
 // runShell runs the interactive CLI until exit, end of input, or SIGTERM.

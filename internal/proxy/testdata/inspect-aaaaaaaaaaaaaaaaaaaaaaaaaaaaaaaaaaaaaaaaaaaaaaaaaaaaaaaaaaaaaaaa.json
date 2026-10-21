@@ -1,0 +1,17 @@
+{
+  "Id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Created": "2026-10-21T09:00:00.123456789Z", "Path": "/plop", "Args": ["--token", "SECRET-MARKER-args"],
+  "State": {"Status": "running", "Running": true, "Paused": false, "Restarting": false, "OOMKilled": false, "Dead": false, "Pid": 4242, "ExitCode": 0, "Error": "",
+            "StartedAt": "2026-10-21T09:00:01.5Z", "FinishedAt": "0001-01-01T00:00:00Z",
+            "Health": {"Status": "healthy", "FailingStreak": 0, "Log": [{"Start": "2026-10-21T12:00:00Z", "ExitCode": 0, "Output": "SECRET-MARKER-healthlog"}]}},
+  "Image": "sha256:SECRET-MARKER-image", "ResolvConfPath": "/var/lib/docker/containers/SECRET-MARKER/resolv.conf", "Name": "/plop", "RestartCount": 2,
+  "HostConfig": {"Binds": ["/srv/server/storage/plop/SECRET-MARKER-bind:/data"], "NetworkMode": "spark", "RestartPolicy": {"Name": "unless-stopped", "MaximumRetryCount": 0},
+                 "NanoCpus": 1500000000, "CpuQuota": 0, "CpuPeriod": 0, "Memory": 536870912},
+  "Mounts": [{"Type": "bind", "Source": "/srv/server/storage/plop/SECRET-MARKER-mount", "Destination": "/data", "RW": true}],
+  "Config": {"Hostname": "SECRET-MARKER-host", "User": "10001",
+             "Env": ["PLOP_DATABASE_URL=postgres://plop_app:SECRET-MARKER-password@sparkdb:5432/plop", "PATH=/usr/bin"],
+             "Cmd": ["/plop", "serve", "--key", "SECRET-MARKER-cmd"], "Image": "plop-plop", "WorkingDir": "/app", "Entrypoint": null,
+             "Labels": {"com.docker.compose.project": "plop", "com.docker.compose.service": "plop", "com.docker.compose.oneoff": "False",
+                        "com.docker.compose.project.working_dir": "/srv/server/staging/SECRET-MARKER-dir",
+                        "com.mobasity.public-url": "https://plop.mobasity.com", "com.mobasity.version": "v1.4.0", "com.example.secret": "SECRET-MARKER-label"}},
+  "NetworkSettings": {"Networks": {"spark": {"IPAddress": "172.18.0.9", "Aliases": ["SECRET-MARKER-alias"]}}}
+}
