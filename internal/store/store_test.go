@@ -267,3 +267,61 @@ func TestGrants(t *testing.T) {
 		}
 	}
 }
+
+// TestReads checks the API's queries, logged in as the reader like the API.
+func TestReads(t *testing.T) {
+	app := open(t)
+	ctx := context.Background()
+	reader, err := Connect(ctx, readerURL, "SONAR_TEST_DATABASE_READER_URL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+
+	base := time.Date(2026, 10, 21, 14, 0, 0, 0, time.UTC)
+	for n := range 6 {
+		m := sampleMinute(base.Add(time.Duration(n) * time.Minute))
+		m.Host.CPUAvg, m.Host.CPUMin, m.Host.CPUMax = f(float64(10*(n+1))), f(float64(n)), f(float64(90+n))
+		m.Host.CPUSamples, m.Host.Samples = 12, 12
+		if n == 5 {
+			m.Host.CPUAvg, m.Host.CPUMin, m.Host.CPUMax, m.Host.CPUSamples, m.Host.Samples = nil, nil, nil, 0, 6
+		}
+		m.Checks[0].LatencyAvgMs, m.Checks[0].Attempts, m.Checks[0].Failures = i(100*(n+1)), 2, n%2
+		if err := app.WriteMinute(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := app.Rollup(ctx, base); err != nil {
+		t.Fatal(err)
+	}
+
+	buckets, err := reader.HostHistory(ctx, base, base.Add(10*time.Minute), 5*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(buckets) != 2 || !buckets[0].Start.Equal(base) || !buckets[1].Start.Equal(base.Add(5*time.Minute)) {
+		t.Fatalf("buckets = %+v", buckets)
+	}
+	b0, b1 := buckets[0], buckets[1]
+	if b0.Samples != 60 || *b0.CPUAvg != 30 || *b0.CPUMin != 0 || *b0.CPUMax != 94 {
+		t.Errorf("first bucket: %d samples, cpu %v/%v/%v; want 60, 30/0/94", b0.Samples, *b0.CPUAvg, *b0.CPUMin, *b0.CPUMax)
+	}
+	if b1.Samples != 6 || b1.CPUAvg != nil || b1.MemPctAvg == nil {
+		t.Errorf("second bucket (no CPU): %+v", b1)
+	}
+
+	days, err := reader.ProjectDays(ctx, base.AddDate(0, 0, -1), base)
+	if err != nil || len(days) != 1 || days[0].Project != "plop" || days[0].Degraded != 6 || !days[0].Day.Equal(midnightUTC(base)) {
+		t.Errorf("ProjectDays = %+v, %v", days, err)
+	}
+
+	resp, err := reader.ResponseTimes(ctx, base)
+	// Weighted by answered checks: (100*2 + 200*1 + 300*2 + 400*1 + 500*2 + 600*1) / 9.
+	if err != nil || resp["plop"] != 333 {
+		t.Errorf("ResponseTimes = %v, %v; want plop 333", resp, err)
+	}
+}
+
+func midnightUTC(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}

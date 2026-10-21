@@ -1,0 +1,105 @@
+{
+  "generated_at": "2026-10-21T15:04:01Z",
+  "fresh": true,
+  "overall": {
+    "state": "down",
+    "uptime_30d": {
+      "pct": null,
+      "coverage_pct": 6.8
+    }
+  },
+  "projects": [
+    {
+      "project": "lys",
+      "state": "down",
+      "evidence": "container",
+      "response_ms": null,
+      "uptime_30d": {
+        "pct": null,
+        "coverage_pct": 3.4
+      },
+      "uptime_90d": {
+        "pct": null,
+        "coverage_pct": 1.1
+      },
+      "days": [
+        {
+          "date": "2026-10-17",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0
+        },
+        {
+          "date": "2026-10-18",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0
+        },
+        {
+          "date": "2026-10-19",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0
+        },
+        {
+          "date": "2026-10-20",
+          "state": "degraded",
+          "uptime_pct": 100,
+          "coverage_pct": 100
+        },
+        {
+          "date": "2026-10-21",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0
+        }
+      ]
+    },
+    {
+      "project": "plop",
+      "state": "operational",
+      "evidence": "checked",
+      "response_ms": 51,
+      "uptime_30d": {
+        "pct": null,
+        "coverage_pct": 10.3
+      },
+      "uptime_90d": {
+        "pct": null,
+        "coverage_pct": 3.4
+      },
+      "days": [
+        {
+          "date": "2026-10-17",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0
+        },
+        {
+          "date": "2026-10-18",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 41.7
+        },
+        {
+          "date": "2026-10-19",
+          "state": "down",
+          "uptime_pct": 97.22,
+          "coverage_pct": 100
+        },
+        {
+          "date": "2026-10-20",
+          "state": "operational",
+          "uptime_pct": 100,
+          "coverage_pct": 100
+        },
+        {
+          "date": "2026-10-21",
+          "state": "operational",
+          "uptime_pct": 100,
+          "coverage_pct": 100
+        }
+      ]
+    }
+  ]
+}
