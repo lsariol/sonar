@@ -1,0 +1,23 @@
+# Local development on Docker Desktop. Lighthouse never reads this file.
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+# The ${...} values come from .env (copy .env.example).
+
+services:
+  sonar-proxy:
+    environment:
+      - APP_ENV=dev
+
+  sonar-agent:
+    environment:
+      - APP_ENV=dev
+    volumes:
+      - ./.dev/state:/var/lib/sonar        # the snapshot stays in the repo
+
+  sonar-api:
+    environment:
+      - APP_ENV=dev
+      - TZ=${TZ:-UTC}                      # Docker Desktop's VM runs on UTC
+    ports:
+      - "127.0.0.1:2501:2500"
+    volumes:
+      - ./.dev/state:/var/lib/sonar:ro

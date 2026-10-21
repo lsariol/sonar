@@ -1,0 +1,88 @@
+name: sonar
+
+x-lighthouse:
+  deploy: releases
+
+# Secrets are only passed through: each line names a Cove key, Lighthouse
+# fills it in at deploy, and the container sees it under the same name.
+# Every other setting is in the code.
+
+services:
+  sonar-proxy:
+    build: .
+    container_name: sonar-proxy
+    command: ["/sonar", "proxy"]
+    restart: unless-stopped
+    network_mode: none                 # reached only through the socket in the proxy volume
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+    pids_limit: 64
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # this service only (Lighthouse policy.json)
+      - proxy:/run/sonar-proxy
+    healthcheck:
+      test: ["CMD", "/sonar", "health", "proxy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  sonar-agent:
+    build: .
+    container_name: sonar-agent
+    command: ["/sonar", "agent"]
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    environment:
+      - SONAR_DATABASE_URL=${SONAR_DATABASE_URL}
+      - SONAR_DATABASE_MIGRATOR_URL=${SONAR_DATABASE_MIGRATOR_URL}
+      - SONAR_VERSION=${LIGHTHOUSE_DEPLOY_VERSION:-dev}
+    volumes:
+      - proxy:/run/sonar-proxy
+      - state:/var/lib/sonar
+    healthcheck:
+      test: ["CMD", "/sonar", "health", "agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [spark]
+
+  sonar-api:
+    build: .
+    container_name: sonar-api
+    command: ["/sonar", "api"]
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    environment:
+      - SONAR_DATABASE_READER_URL=${SONAR_DATABASE_READER_URL}
+      - SHARED_SONAR_MOBASITY_WEB_TOKEN=${SHARED_SONAR_MOBASITY_WEB_TOKEN}
+      - SONAR_VERSION=${LIGHTHOUSE_DEPLOY_VERSION:-dev}
+    volumes:
+      - state:/var/lib/sonar:ro
+      - /etc/localtime:/etc/localtime:ro   # the CLI shows the server's local time
+    healthcheck:
+      test: ["CMD", "/sonar", "health", "api"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [spark]
+
+volumes:
+  proxy:   # the proxy's socket; mounted by the proxy and the agent only
+  state:   # snapshot.json; written by the agent, read by the API
+
+networks:
+  spark:
+    external: true
