@@ -20,6 +20,14 @@ One Go binary, run as three containers:
 
 Needs Go 1.27.3 and Docker Desktop.
 
+One-time setup, in the repo folder:
+
+1. `docker network create spark`, if it doesn't exist yet.
+2. On `sparkdb-dev` (`localhost:5000`), run `scripts/db/setup.sql` as the admin user, with dev passwords.
+3. Copy `.env.example` to `.env` (gitignored) and fill in the dev values: the three database URLs pointing at `host.docker.internal:5000`, and a dev API token.
+
+`docker-compose.dev.yml` publishes the API on `127.0.0.1:2501` and keeps what Sonar writes in `.dev/`. All three containers turn `healthy` in `docker ps`, and `curl -H "Authorization: Bearer <dev token>" http://127.0.0.1:2501/v1/status` returns your local projects.
+
 ```bash
 go test ./...                                              # the tests
 docker build --target test .                               # as Lighthouse runs them, with -race
