@@ -64,6 +64,7 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 128m
+    expose: ["2500"]                   # documents the port; not published
     environment:
       - SONAR_DATABASE_READER_URL=${SONAR_DATABASE_READER_URL}
       - SHARED_SONAR_MOBASITY_WEB_TOKEN=${SHARED_SONAR_MOBASITY_WEB_TOKEN}
