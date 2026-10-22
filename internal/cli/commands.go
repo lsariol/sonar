@@ -131,6 +131,20 @@ func commandTable() []command {
 			complete: (*CLI).projectNames,
 		},
 		{
+			names:    []string{"updates"},
+			group:    groupHistory,
+			synopsis: "[project] [--days N]",
+			summary:  "Deploys Sonar has seen, with versions",
+			usages: []usage{
+				{"updates", "List the updates of every project in the last 7 days, oldest first: when each started, the service, the version before and after, how long it took to come up, and its outcome (ok, failed, or timed out after 2 minutes)."},
+				{"updates <project>", "Only that project's updates."},
+			},
+			flags:    []flag{{"--days N", "How many days back, from 1 to 380. 7 unless given."}},
+			examples: []example{{"updates", "this week's deploys"}, {"updates plop --days 30", "plop's last month"}},
+			run:      (*CLI).updates,
+			complete: (*CLI).projectNames,
+		},
+		{
 			names:   []string{"consumers"},
 			group:   groupSetup,
 			summary: "Who may use the API, and their tokens",

@@ -27,7 +27,8 @@ func (s *Store) Rollup(ctx context.Context, day time.Time) error {
 			SELECT project,
 			       count(*) FILTER (WHERE state = 1) AS up,
 			       count(*) FILTER (WHERE state = 2) AS degraded,
-			       count(*) FILTER (WHERE state = 3) AS down
+			       count(*) FILTER (WHERE state = 3) AS down,
+			       count(*) FILTER (WHERE state = 4) AS updating
 			  FROM sonar.project_minutes
 			 WHERE minute >= $2 AND minute < $3 AND state > 0
 			 GROUP BY project
@@ -38,26 +39,29 @@ func (s *Store) Rollup(ctx context.Context, day time.Time) error {
 			 WHERE c.minute >= $2 AND c.minute < $3 AND c.latency_ms_avg IS NOT NULL
 			 GROUP BY s.project
 		)
-		INSERT INTO sonar.project_days (project, day, minutes_up, minutes_degraded, minutes_down, latency_ms_avg)
-		SELECT c.project, $1, c.up, c.degraded, c.down, l.ms
+		INSERT INTO sonar.project_days (project, day, minutes_up, minutes_degraded, minutes_down, minutes_updating, latency_ms_avg)
+		SELECT c.project, $1, c.up, c.degraded, c.down, c.updating, l.ms
 		  FROM counts c LEFT JOIN latency l USING (project)
 		ON CONFLICT (project, day) DO UPDATE SET
 			minutes_up = EXCLUDED.minutes_up, minutes_degraded = EXCLUDED.minutes_degraded,
-			minutes_down = EXCLUDED.minutes_down, latency_ms_avg = EXCLUDED.latency_ms_avg`,
+			minutes_down = EXCLUDED.minutes_down, minutes_updating = EXCLUDED.minutes_updating,
+			latency_ms_avg = EXCLUDED.latency_ms_avg`,
 		from, from, to)
 	if err != nil {
 		return fmt.Errorf("database: daily project rows for %s: %w", from.Format(time.DateOnly), err)
 	}
 
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO sonar.service_days (service_id, day, minutes_up, minutes_degraded, minutes_down)
+		INSERT INTO sonar.service_days (service_id, day, minutes_up, minutes_degraded, minutes_down, minutes_updating)
 		SELECT service_id, $1,
-		       count(*) FILTER (WHERE state = 1), count(*) FILTER (WHERE state = 2), count(*) FILTER (WHERE state = 3)
+		       count(*) FILTER (WHERE state = 1), count(*) FILTER (WHERE state = 2), count(*) FILTER (WHERE state = 3),
+		       count(*) FILTER (WHERE state = 4)
 		  FROM sonar.service_minutes
 		 WHERE minute >= $2 AND minute < $3 AND counted AND state > 0
 		 GROUP BY service_id
 		ON CONFLICT (service_id, day) DO UPDATE SET
-			minutes_up = EXCLUDED.minutes_up, minutes_degraded = EXCLUDED.minutes_degraded, minutes_down = EXCLUDED.minutes_down`,
+			minutes_up = EXCLUDED.minutes_up, minutes_degraded = EXCLUDED.minutes_degraded, minutes_down = EXCLUDED.minutes_down,
+			minutes_updating = EXCLUDED.minutes_updating`,
 		from, from, to)
 	if err != nil {
 		return fmt.Errorf("database: daily service rows for %s: %w", from.Format(time.DateOnly), err)
@@ -81,6 +85,7 @@ func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 		{"project_days", "day", dayCutoff},
 		{"service_days", "day", dayCutoff},
 		{"containers", "last_seen", dayCutoff},
+		{"updates", "started_at", dayCutoff},
 	}
 
 	var total int64

@@ -35,6 +35,7 @@ type fakeReader struct {
 	days      []store.DayCounts
 	response  map[string]int
 	buckets   []store.HostBucket
+	updates   []store.Update
 	err       error
 	dayCalls  atomic.Int32
 	histCalls atomic.Int32
@@ -54,6 +55,10 @@ func (f *fakeReader) HostHistory(ctx context.Context, from, to time.Time, bucket
 	return f.buckets, f.err
 }
 
+func (f *fakeReader) UpdatesBetween(context.Context, time.Time, time.Time) ([]store.Update, error) {
+	return f.updates, f.err
+}
+
 func (f *fakeReader) CheckSchemaVersion(context.Context) error { return nil }
 func (f *fakeReader) Ping(context.Context) error               { return f.err }
 
@@ -67,7 +72,7 @@ func (f *fakeSnapshots) Load() (snapshot.Snapshot, error) { return f.snap, f.err
 // private values that must never reach a public answer.
 var private = []string{
 	strings.Repeat("a", 64), "plop-plop", "v1.4.0", "https://plop.mobasity.com", "postgres:16.4",
-	"sparkdb", "cloudflared", "secret-sidecar", "16621363200", "28.7", "e2e-scratch", "cron", "nightly",
+	"sparkdb", "cloudflared", "secret-sidecar", "16621363200", "28.7", "e2e-scratch", "cron", "nightly", "v1.5.0", "v1.3.9", "worker",
 }
 
 func f(v float64) *float64 { return &v }
@@ -241,8 +246,20 @@ func TestRefusalsDontFloodTheLog(t *testing.T) {
 	}
 }
 
+// testUpdates: two of plop's services replaced in one deploy 30 minutes ago
+// (one marker), a failed deploy two days ago, and an excluded project's.
+func testUpdates() []store.Update {
+	deploy := now.Add(-30 * time.Minute)
+	return []store.Update{
+		{Project: "plop", Service: "plop", Started: deploy, Ended: deploy.Add(34 * time.Second), From: "v1.4.0", To: "v1.5.0", Outcome: "ok"},
+		{Project: "plop", Service: "worker", Started: deploy.Add(5 * time.Second), Ended: deploy.Add(41 * time.Second), From: "v1.4.0", To: "v1.5.0", Outcome: "ok"},
+		{Project: "plop", Service: "plop", Started: now.Add(-50 * time.Hour), Ended: now.Add(-50*time.Hour + 2*time.Minute), From: "v1.3.9", To: "v1.4.0", Outcome: "timed out"},
+		{Project: "sparkdb", Service: "db", Started: deploy, Ended: deploy.Add(20 * time.Second), From: "16.3", To: "16.4", Outcome: "ok"},
+	}
+}
+
 func TestStatusGolden(t *testing.T) {
-	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51, "sparkdb": 2}}
+	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51, "sparkdb": 2}, updates: testUpdates()}
 	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now.Add(-4 * time.Second))})
 	status, h, body := do(t, s, "GET", "/v1/status?days=5", "Bearer "+token)
 	if status != http.StatusOK || h.Get("Content-Type") != "application/json" || h.Get("Cache-Control") != "no-store" {
@@ -254,11 +271,12 @@ func TestStatusGolden(t *testing.T) {
 // TestNothingPrivate checks that no internal value reaches a public answer,
 // and that every key in it is one the design lists.
 func TestNothingPrivate(t *testing.T) {
-	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51}, buckets: testBuckets()}
+	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51}, buckets: testBuckets(), updates: testUpdates()}
 	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now)})
 	allowed := []string{"generated_at", "fresh", "overall", "state", "uptime_30d", "uptime_90d", "pct", "coverage_pct",
 		"projects", "project", "evidence", "response_ms", "days", "date", "uptime_pct",
-		"range", "from", "to", "bucket_seconds", "points", "t", "cpu_pct", "mem_used_pct", "avg", "min", "max"}
+		"range", "from", "to", "bucket_seconds", "points", "t", "cpu_pct", "mem_used_pct", "avg", "min", "max",
+		"updates", "started", "ended", "seconds", "outcome"}
 
 	for _, path := range []string{"/v1/status", "/v1/status?days=380", "/v1/status/history?range=1h", "/healthz"} {
 		_, _, body := do(t, s, "GET", path, "Bearer "+token)
@@ -326,7 +344,7 @@ func testBuckets() []store.HostBucket {
 }
 
 func TestHistoryGolden(t *testing.T) {
-	s := newTestServer(t, &fakeReader{buckets: testBuckets()}, &fakeSnapshots{snap: testSnapshot(now)})
+	s := newTestServer(t, &fakeReader{buckets: testBuckets(), updates: testUpdates()}, &fakeSnapshots{snap: testSnapshot(now)})
 	status, _, body := do(t, s, "GET", "/v1/status/history?range=1h", "Bearer "+token)
 	if status != http.StatusOK {
 		t.Fatalf("%d: %s", status, body)

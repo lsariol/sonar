@@ -385,5 +385,14 @@
       },
       "coverage_pct": 8.3
     }
+  ],
+  "updates": [
+    {
+      "project": "plop",
+      "started": "2026-10-21T14:34:05Z",
+      "ended": "2026-10-21T14:34:46Z",
+      "seconds": 41,
+      "outcome": "ok"
+    }
   ]
 }

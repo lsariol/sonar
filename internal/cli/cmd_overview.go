@@ -85,26 +85,46 @@ func (c *CLI) status(ctx context.Context, args []string) error {
 	return nil
 }
 
-// history reads every project's daily rows for the last days days, with the
-// last hour's response times. Without the database it returns the error.
-func (c *CLI) history(ctx context.Context, now time.Time, days int) (map[string][]store.DayCounts, map[string]int, error) {
+// projectHistory is what the database holds about the projects over a stretch
+// of days, by project.
+type projectHistory struct {
+	days     map[string][]store.DayCounts
+	updates  map[string][]store.Update
+	response map[string]int // average over the last hour, ms
+}
+
+// history reads every project's daily rows and updates for the last days
+// days, with the last hour's response times.
+func (c *CLI) history(ctx context.Context, now time.Time, days int) (projectHistory, error) {
+	h := projectHistory{days: make(map[string][]store.DayCounts), updates: make(map[string][]store.Update)}
 	db, err := c.database(ctx)
 	if err != nil {
-		return nil, nil, err
+		return h, err
 	}
-	rows, err := db.ProjectDays(ctx, now.UTC().AddDate(0, 0, -(days-1)), now)
+	from := now.UTC().AddDate(0, 0, -(days - 1))
+	rows, err := db.ProjectDays(ctx, from, now)
 	if err != nil {
-		return nil, nil, err
+		return h, err
 	}
-	response, err := db.ResponseTimes(ctx, now.Add(-time.Hour))
+	updates, err := db.UpdatesBetween(ctx, midnightUTC(from), now)
 	if err != nil {
-		return nil, nil, err
+		return h, err
 	}
-	byProject := make(map[string][]store.DayCounts)
+	if h.response, err = db.ResponseTimes(ctx, now.Add(-time.Hour)); err != nil {
+		return h, err
+	}
 	for _, r := range rows {
-		byProject[r.Project] = append(byProject[r.Project], r)
+		h.days[r.Project] = append(h.days[r.Project], r)
 	}
-	return byProject, response, nil
+	for _, u := range updates {
+		h.updates[u.Project] = append(h.updates[u.Project], u)
+	}
+	return h, nil
+}
+
+func midnightUTC(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // uptimeText is "99.97% (98.6% covered)", or "- (3.0% covered)" under half.
@@ -142,15 +162,15 @@ func (c *CLI) projects(ctx context.Context, args []string) error {
 		return err
 	}
 	now := c.opts.Now()
-	days, response, histErr := c.history(ctx, now, 90)
+	h, histErr := c.history(ctx, now, 90)
 
 	rows := [][]string{{"PROJECT", "STATE", "EVIDENCE", "SERVICES", "UPTIME 30 DAYS", "RESPONSE", "PUBLIC"}}
 	for _, p := range snap.Projects {
 		up, resp := "-", "-"
 		if histErr == nil {
-			_, up30, _ := api.ProjectDays(now, 30, days[p.Project])
+			_, up30, _ := api.ProjectDays(now, 30, h.days[p.Project], h.updates[p.Project])
 			up = uptimeText(up30)
-			if ms, ok := response[p.Project]; ok {
+			if ms, ok := h.response[p.Project]; ok {
 				resp = fmt.Sprintf("%d ms", ms)
 			}
 		}
@@ -193,11 +213,11 @@ func (c *CLI) project(ctx context.Context, args []string) error {
 		{"State", fmt.Sprintf("%s (evidence: %s)", p.State, p.Evidence)},
 		{"Public", publicText(p.Project)},
 	}
-	days, response, histErr := c.history(ctx, now, 90)
+	h, histErr := c.history(ctx, now, 90)
 	if histErr == nil {
-		_, up30, up90 := api.ProjectDays(now, 90, days[p.Project])
+		_, up30, up90 := api.ProjectDays(now, 90, h.days[p.Project], h.updates[p.Project])
 		rows = append(rows, [2]string{"Uptime 30 days", uptimeText(up30)}, [2]string{"Uptime 90 days", uptimeText(up90)})
-		if ms, ok := response[p.Project]; ok {
+		if ms, ok := h.response[p.Project]; ok {
 			rows = append(rows, [2]string{"Response", fmt.Sprintf("%d ms (average, last hour)", ms)})
 		}
 	}
@@ -211,7 +231,11 @@ func (c *CLI) project(ctx context.Context, args []string) error {
 		if !s.Counted {
 			counted = "no (a one-off job)"
 		}
-		svc = append(svc, []string{s.Service, s.State.String(), counted, fmt.Sprint(len(s.Containers)),
+		st := s.State.String()
+		if u := s.Update; u != nil {
+			st = fmt.Sprintf("updating %s → %s, %s", orDash(u.From), orDash(u.To), duration(now.Sub(u.Since)))
+		}
+		svc = append(svc, []string{s.Service, st, counted, fmt.Sprint(len(s.Containers)),
 			cores(s.Usage.CPUCores), sizePtr(s.Usage.MemoryBytes), rateOf(s.Usage.NetRxRate), rateOf(s.Usage.NetTxRate)})
 		for _, k := range s.Containers {
 			ctr = append(ctr, []string{k.Name, s.Service, k.State, k.Health, orDash(k.Version), k.Image,
@@ -231,6 +255,12 @@ func (c *CLI) project(ctx context.Context, args []string) error {
 	if len(checks) > 0 {
 		out("")
 		table(append([][]string{checkHeader}, checks...))
+	}
+
+	if ups := h.updates[p.Project]; len(ups) > 0 {
+		out("")
+		table(updateRows(ups[max(0, len(ups)-5):]))
+		info(fmt.Sprintf("The last %d of %d updates in 90 days; \"updates %s\" lists them all.", min(5, len(ups)), len(ups), projectName(p.Project)))
 	}
 
 	if !snap.Fresh(now) {

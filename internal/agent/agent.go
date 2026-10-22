@@ -104,6 +104,9 @@ type Agent struct {
 	refused []string // labels that can't be checked, for attention
 	checks  map[target]*checkStatus
 
+	seen    map[serviceKey]seenService // each service's containers at its last reading
+	updates map[serviceKey]*update     // updates in progress
+
 	buckets map[time.Time]*bucket // minutes still being added up
 	pending []store.Minute        // finished minutes waiting for the database
 }
@@ -147,6 +150,8 @@ func New(opts Options) *Agent {
 		usage:    make(map[string]snapshot.Usage),
 		checks:   make(map[target]*checkStatus),
 		buckets:  make(map[time.Time]*bucket),
+		seen:     make(map[serviceKey]seenService),
+		updates:  make(map[serviceKey]*update),
 	}
 	if opts.OpenStore != nil {
 		a.collectors[databaseCollector] = &collector{every: time.Minute}
@@ -277,7 +282,9 @@ func (a *Agent) sampleDocker(ctx context.Context) {
 	if statsErr == nil {
 		grown = a.updateUsage(stats)
 	}
-	a.addDockerMinute(a.opts.Now(), grown)
+	now := a.opts.Now()
+	a.trackUpdates(now)
+	a.addDockerMinute(now, grown)
 }
 
 // keepUninspected is the new list, plus the last known details of containers

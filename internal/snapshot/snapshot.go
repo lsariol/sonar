@@ -99,11 +99,20 @@ type Project struct {
 // Service is a compose service: its state, its containers, and their usage
 // added up.
 type Service struct {
-	Service    string      `json:"service"`
-	State      state.State `json:"state"`
-	Counted    bool        `json:"counted"` // false for one-off jobs
-	Usage      Usage       `json:"usage"`
-	Containers []Container `json:"containers"`
+	Service    string         `json:"service"`
+	State      state.State    `json:"state"`
+	Counted    bool           `json:"counted"` // false for one-off jobs
+	Usage      Usage          `json:"usage"`
+	Update     *ServiceUpdate `json:"update"` // while a deploy replaces it
+	Containers []Container    `json:"containers"`
+}
+
+// ServiceUpdate is a deploy in progress: since when, and between which
+// versions.
+type ServiceUpdate struct {
+	Since time.Time `json:"since"`
+	From  string    `json:"from"`
+	To    string    `json:"to"`
 }
 
 // Container is one container instance.

@@ -33,6 +33,7 @@ type Options struct {
 type DB interface {
 	ProjectDays(ctx context.Context, from, to time.Time) ([]store.DayCounts, error)
 	ResponseTimes(ctx context.Context, since time.Time) (map[string]int, error)
+	UpdatesBetween(ctx context.Context, from, to time.Time) ([]store.Update, error)
 	Migrations(ctx context.Context) ([]store.Migration, error)
 	CheckSchemaVersion(ctx context.Context) error
 }

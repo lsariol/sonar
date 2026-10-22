@@ -67,7 +67,7 @@ func (a *Agent) build() snapshot.Snapshot {
 
 	dockerLastOK := a.collectors[dockerCollector].lastOK
 	dockerFresh := !dockerLastOK.IsZero() && now.Sub(dockerLastOK) <= dockerFreshFor
-	s.Projects = a.buildProjects(checksByProject, dockerFresh)
+	s.Projects = a.buildProjects(now, checksByProject, dockerFresh)
 	return s
 }
 
@@ -100,7 +100,7 @@ func (a *Agent) buildHost() *snapshot.Host {
 // buildProjects groups containers by compose project and service and
 // decides each one's state. Without fresh Docker data, every project is
 // unknown.
-func (a *Agent) buildProjects(checksByProject map[string][]state.State, dockerFresh bool) []snapshot.Project {
+func (a *Agent) buildProjects(now time.Time, checksByProject map[string][]state.State, dockerFresh bool) []snapshot.Project {
 	byProject := make(map[string]map[string][]containers.Container)
 	for _, c := range a.containers {
 		if byProject[c.Project] == nil {
@@ -114,8 +114,12 @@ func (a *Agent) buildProjects(checksByProject map[string][]state.State, dockerFr
 		p := snapshot.Project{Project: name, Services: []snapshot.Service{}}
 		var counted []state.State
 		for svcName, cs := range services {
-			svcState, ok := state.Service(cs)
+			k := serviceKey{name, svcName}
+			svcState, ok := a.serviceState(k, cs, now)
 			svc := snapshot.Service{Service: svcName, State: svcState, Counted: ok, Containers: []snapshot.Container{}}
+			if u := a.updates[k]; u != nil {
+				svc.Update = &snapshot.ServiceUpdate{Since: u.started, From: u.from, To: u.to}
+			}
 			var usages []snapshot.Usage
 			for _, c := range cs {
 				u := a.usage[c.ID]

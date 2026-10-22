@@ -63,7 +63,7 @@ func open(t *testing.T) *Store {
 	})
 
 	for _, table := range []string{"containers", "host_minutes", "service_minutes", "check_minutes",
-		"project_minutes", "project_days", "service_days", "services"} {
+		"project_minutes", "project_days", "service_days", "updates", "services"} {
 		if _, err := s.pool.Exec(ctx, "DELETE FROM sonar."+table); err != nil {
 			t.Fatal(err)
 		}
@@ -101,8 +101,8 @@ func TestMigrations(t *testing.T) {
 	s := open(t)
 	ctx := context.Background()
 	have, want, err := s.SchemaVersion(ctx)
-	if err != nil || have != want || want != 2 {
-		t.Errorf("SchemaVersion = %d, %d, %v; want 2, 2", have, want, err)
+	if err != nil || have != want || want != 3 {
+		t.Errorf("SchemaVersion = %d, %d, %v; want 3, 3", have, want, err)
 	}
 	if err := s.CheckSchemaVersion(ctx); err != nil {
 		t.Error(err)
@@ -339,4 +339,59 @@ func TestReads(t *testing.T) {
 
 func midnightUTC(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// TestUpdates: update records are written with their minute, read back for a
+// window, counted in the daily rows as updating minutes, readable by the
+// reader, and deleted after the retention.
+func TestUpdates(t *testing.T) {
+	app := open(t)
+	ctx := context.Background()
+	reader, err := Connect(ctx, readerURL, "SONAR_TEST_DATABASE_READER_URL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+
+	day := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
+	started := day.Add(14*time.Hour + 2*time.Minute + 10*time.Second)
+	for n, st := range []state.State{state.Up, state.Updating, state.Up} {
+		m := sampleMinute(day.Add(14*time.Hour + time.Duration(n+1)*time.Minute))
+		m.Projects[0].State = st
+		if n == 1 {
+			m.Updates = []Update{{Project: "plop", Service: "plop", Started: started, Ended: started.Add(34 * time.Second),
+				From: "v1.4.0", To: "v1.5.0", Outcome: "ok"}}
+		}
+		if err := app.WriteMinute(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := app.Rollup(ctx, day); err != nil {
+		t.Fatal(err)
+	}
+
+	updates, err := reader.UpdatesBetween(ctx, day, day.Add(24*time.Hour))
+	if err != nil || len(updates) != 1 {
+		t.Fatalf("UpdatesBetween = %+v, %v", updates, err)
+	}
+	u := updates[0]
+	if u.Project != "plop" || !u.Started.Equal(started) || u.Ended.Sub(u.Started) != 34*time.Second || u.To != "v1.5.0" || u.Outcome != "ok" {
+		t.Errorf("update = %+v", u)
+	}
+	if later, _ := reader.UpdatesBetween(ctx, started.Add(time.Second), day.Add(24*time.Hour)); len(later) != 0 {
+		t.Errorf("a window starting after it: %+v", later)
+	}
+
+	days, err := reader.ProjectDays(ctx, day, day)
+	if err != nil || len(days) != 1 || days[0].Up != 2 || days[0].Updating != 1 {
+		t.Errorf("ProjectDays = %+v, %v; want 2 up, 1 updating", days, err)
+	}
+
+	n, err := app.Prune(ctx, started.Add(DaysKeptFor+time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left, _ := reader.UpdatesBetween(ctx, day, day.Add(24*time.Hour)); len(left) != 0 || n == 0 {
+		t.Errorf("after the retention: %d rows deleted, %d updates left", n, len(left))
+	}
 }

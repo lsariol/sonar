@@ -32,19 +32,23 @@ func (c *CLI) days(ctx context.Context, args []string) error {
 	project := rest[0]
 
 	now := c.opts.Now()
-	byProject, _, err := c.history(ctx, now, max(n, 90))
+	h, err := c.history(ctx, now, max(n, 90))
 	if err != nil {
 		return err
 	}
-	rows, ok := byProject[project]
+	rows, ok := h.days[project]
 	if !ok && !slices.Contains(c.projectNames(), project) {
 		return fmt.Errorf("No project %q is running, and it has no history in the last %d days. \"projects\" lists what's running.", project, max(n, 90))
 	}
 
-	strip, up30, up90 := api.ProjectDays(now, n, rows)
-	lines := [][]string{{"DATE (UTC)", "STATE", "UPTIME", "COVERAGE"}}
+	strip, up30, up90 := api.ProjectDays(now, n, rows, h.updates[project])
+	lines := [][]string{{"DATE (UTC)", "STATE", "UPTIME", "COVERAGE", "UPDATES"}}
 	for _, d := range strip {
-		lines = append(lines, []string{d.Date, d.State, percentPtr(d.UptimePct), percent(d.CoveragePct)})
+		updates := "-"
+		if d.Updates > 0 {
+			updates = fmt.Sprint(d.Updates)
+		}
+		lines = append(lines, []string{d.Date, d.State, percentPtr(d.UptimePct), percent(d.CoveragePct), updates})
 	}
 	table(lines)
 	info(fmt.Sprintf("%d %s. Uptime: %s over 30 days, %s over 90 days.", n, plural(n, "day", "days"), uptimeText(up30), uptimeText(up90)))

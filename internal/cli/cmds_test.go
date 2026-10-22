@@ -28,6 +28,7 @@ type fakeDB struct {
 	days       []store.DayCounts
 	response   map[string]int
 	migrations []store.Migration
+	updates    []store.Update
 	schemaErr  error
 }
 
@@ -38,7 +39,10 @@ func (f *fakeDB) ResponseTimes(context.Context, time.Time) (map[string]int, erro
 	return f.response, nil
 }
 func (f *fakeDB) Migrations(context.Context) ([]store.Migration, error) { return f.migrations, nil }
-func (f *fakeDB) CheckSchemaVersion(context.Context) error              { return f.schemaErr }
+func (f *fakeDB) UpdatesBetween(context.Context, time.Time, time.Time) ([]store.Update, error) {
+	return f.updates, nil
+}
+func (f *fakeDB) CheckSchemaVersion(context.Context) error { return f.schemaErr }
 
 func fp(v float64) *float64 { return &v }
 func up(v uint64) *uint64   { return &v }
@@ -325,4 +329,35 @@ func TestFormats(t *testing.T) {
 			t.Errorf("got %q, want %q", got, want)
 		}
 	}
+}
+
+func TestUpdates(t *testing.T) {
+	snap := testSnap(now)
+	db := goodDB()
+	at := now.Add(-2 * time.Hour)
+	db.updates = []store.Update{
+		{Project: "plop", Service: "plop", Started: at, Ended: at.Add(34 * time.Second), From: "v1.4.0", To: "v1.5.0", Outcome: "ok"},
+		{Project: "lys", Service: "lys", Started: at.Add(time.Hour), Ended: at.Add(time.Hour + 2*time.Minute), From: "v2.0.0", To: "v2.1.0", Outcome: "timed out"},
+	}
+	c := testCLI(t, &snap, db)
+
+	o, e, err := run(t, c, "updates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustContain(t, "updates", o, "STARTED", "plop", "v1.4.0", "v1.5.0", "34 s", "ok", "lys", "timed out")
+	mustContain(t, "updates", e, "2 updates of any project in the last 7 days, 1 that didn't come up healthy")
+
+	o, _, _ = run(t, c, "updates plop --days 30")
+	if strings.Contains(o, "lys") || !strings.Contains(o, "v1.5.0") {
+		t.Errorf("updates plop:\n%s", o)
+	}
+	_, e, _ = run(t, c, "updates sparkdb")
+	mustContain(t, "no updates", e, `No updates of "sparkdb" in the last 7 days`)
+
+	o, _, _ = run(t, c, "days plop --days 1")
+	mustContain(t, "days with an update", o, "UPDATES", "1")
+	o, e, _ = run(t, c, "project plop")
+	mustContain(t, "project plop", o, "v1.4.0", "v1.5.0")
+	mustContain(t, "project plop", e, "The last 1 of 1 updates")
 }

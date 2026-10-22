@@ -25,6 +25,7 @@ type bucket struct {
 	checks     map[serviceKey]*checkSum
 	projects   map[string]*projectSum
 	containers map[string]store.ContainerSeen
+	updates    []store.Update // updates that ended during the minute
 }
 
 type serviceKey struct{ project, service string }
@@ -132,7 +133,7 @@ func (a *Agent) addDockerMinute(now time.Time, grown map[string]counters) {
 			s = &serviceSum{}
 			b.services[k] = s
 		}
-		st, counted := state.Service(cs)
+		st, counted := a.serviceState(k, cs, now)
 		s.samples++
 		s.state = state.Worst(s.state, st)
 		s.counted = s.counted || counted
@@ -278,6 +279,7 @@ func (b *bucket) minute() store.Minute {
 	for _, c := range b.containers {
 		m.Containers = append(m.Containers, c)
 	}
+	m.Updates = b.updates
 
 	slices.SortFunc(m.Services, func(x, y store.ServiceMinute) int {
 		return cmp.Or(cmp.Compare(x.Project, y.Project), cmp.Compare(x.Service, y.Service))

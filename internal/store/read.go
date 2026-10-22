@@ -10,17 +10,17 @@ import (
 
 // DayCounts is one project's minute counts for one UTC day.
 type DayCounts struct {
-	Project            string
-	Day                time.Time
-	Up, Degraded, Down int
-	LatencyMs          *int
+	Project                      string
+	Day                          time.Time
+	Up, Updating, Degraded, Down int
+	LatencyMs                    *int
 }
 
 // ProjectDays returns the daily rows from one UTC date to another, both
 // included.
 func (s *Store) ProjectDays(ctx context.Context, from, to time.Time) ([]DayCounts, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT project, day, minutes_up, minutes_degraded, minutes_down, latency_ms_avg
+		SELECT project, day, minutes_up, minutes_updating, minutes_degraded, minutes_down, latency_ms_avg
 		  FROM sonar.project_days
 		 WHERE day >= $1 AND day <= $2
 		 ORDER BY project, day`, dateOnly(from), dateOnly(to))
@@ -29,7 +29,7 @@ func (s *Store) ProjectDays(ctx context.Context, from, to time.Time) ([]DayCount
 	}
 	days, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (DayCounts, error) {
 		var d DayCounts
-		err := r.Scan(&d.Project, &d.Day, &d.Up, &d.Degraded, &d.Down, &d.LatencyMs)
+		err := r.Scan(&d.Project, &d.Day, &d.Up, &d.Updating, &d.Degraded, &d.Down, &d.LatencyMs)
 		d.Day = d.Day.UTC()
 		return d, err
 	})
@@ -64,6 +64,29 @@ func (s *Store) ResponseTimes(ctx context.Context, since time.Time) (map[string]
 		return nil, fmt.Errorf("database: reading response times: %w", err)
 	}
 	return out, nil
+}
+
+// UpdatesBetween returns the updates that started from from to to, oldest
+// first.
+func (s *Store) UpdatesBetween(ctx context.Context, from, to time.Time) ([]Update, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT s.project, s.service, u.started_at, u.ended_at, u.from_version, u.to_version, u.outcome
+		  FROM sonar.updates u JOIN sonar.services s ON s.id = u.service_id
+		 WHERE u.started_at >= $1 AND u.started_at < $2
+		 ORDER BY u.started_at, s.project, s.service`, from.UTC(), to.UTC())
+	if err != nil {
+		return nil, fmt.Errorf("database: reading updates: %w", err)
+	}
+	updates, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Update, error) {
+		var u Update
+		err := r.Scan(&u.Project, &u.Service, &u.Started, &u.Ended, &u.From, &u.To, &u.Outcome)
+		u.Started, u.Ended = u.Started.UTC(), u.Ended.UTC()
+		return u, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("database: reading updates: %w", err)
+	}
+	return updates, nil
 }
 
 // HostBucket is the host over one stretch of the graph.

@@ -37,6 +37,7 @@ type Reader interface {
 	ProjectDays(ctx context.Context, from, to time.Time) ([]store.DayCounts, error)
 	ResponseTimes(ctx context.Context, since time.Time) (map[string]int, error)
 	HostHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.HostBucket, error)
+	UpdatesBetween(ctx context.Context, from, to time.Time) ([]store.Update, error)
 	CheckSchemaVersion(ctx context.Context) error
 	Ping(ctx context.Context) error
 }
@@ -275,7 +276,11 @@ func (s *Server) historyHandler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
-			return buildHistory(now, name, hr, buckets), nil
+			updates, err := db.UpdatesBetween(ctx, from, to)
+			if err != nil {
+				return nil, err
+			}
+			return buildHistory(now, name, hr, buckets, updates), nil
 		})
 	})
 }
@@ -296,7 +301,11 @@ func (s *Server) buildStatus(ctx context.Context, db Reader, now time.Time, days
 	if err != nil {
 		return statusAnswer{}, err
 	}
-	return buildStatus(now, snap, days, rows, response), nil
+	updates, err := db.UpdatesBetween(ctx, from, now)
+	if err != nil {
+		return statusAnswer{}, err
+	}
+	return buildStatus(now, snap, days, rows, updates, response), nil
 }
 
 // answer serves what get builds, or 503 while the database can't answer.

@@ -27,31 +27,36 @@
           "date": "2026-10-17",
           "state": "no_data",
           "uptime_pct": null,
-          "coverage_pct": 0
+          "coverage_pct": 0,
+          "updates": 0
         },
         {
           "date": "2026-10-18",
           "state": "no_data",
           "uptime_pct": null,
-          "coverage_pct": 0
+          "coverage_pct": 0,
+          "updates": 0
         },
         {
           "date": "2026-10-19",
           "state": "no_data",
           "uptime_pct": null,
-          "coverage_pct": 0
+          "coverage_pct": 0,
+          "updates": 0
         },
         {
           "date": "2026-10-20",
           "state": "degraded",
           "uptime_pct": 100,
-          "coverage_pct": 100
+          "coverage_pct": 100,
+          "updates": 0
         },
         {
           "date": "2026-10-21",
           "state": "no_data",
           "uptime_pct": null,
-          "coverage_pct": 0
+          "coverage_pct": 0,
+          "updates": 0
         }
       ]
     },
@@ -73,31 +78,36 @@
           "date": "2026-10-17",
           "state": "no_data",
           "uptime_pct": null,
-          "coverage_pct": 0
+          "coverage_pct": 0,
+          "updates": 0
         },
         {
           "date": "2026-10-18",
           "state": "no_data",
           "uptime_pct": null,
-          "coverage_pct": 41.7
+          "coverage_pct": 41.7,
+          "updates": 0
         },
         {
           "date": "2026-10-19",
           "state": "down",
           "uptime_pct": 97.22,
-          "coverage_pct": 100
+          "coverage_pct": 100,
+          "updates": 1
         },
         {
           "date": "2026-10-20",
           "state": "operational",
           "uptime_pct": 100,
-          "coverage_pct": 100
+          "coverage_pct": 100,
+          "updates": 0
         },
         {
           "date": "2026-10-21",
           "state": "operational",
           "uptime_pct": 100,
-          "coverage_pct": 100
+          "coverage_pct": 100,
+          "updates": 1
         }
       ]
     }

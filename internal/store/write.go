@@ -18,6 +18,15 @@ type Minute struct {
 	Checks     []CheckMinute
 	Projects   []ProjectMinute
 	Containers []ContainerSeen
+	Updates    []Update // updates that ended during the minute
+}
+
+// Update is one service being replaced by a deploy.
+type Update struct {
+	Project, Service string
+	Started, Ended   time.Time
+	From, To         string // versions (com.mobasity.version)
+	Outcome          string // ok, failed or timed out
 }
 
 // HostMinute is the host over one minute.
@@ -146,6 +155,15 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 			ON CONFLICT (project, minute) DO UPDATE SET state = EXCLUDED.state, evidence = EXCLUDED.evidence`,
 			p.Project, start, int(p.State), string(p.Evidence))
 	}
+	for _, u := range m.Updates {
+		b.Queue(`
+			INSERT INTO sonar.updates (service_id, started_at, ended_at, from_version, to_version, outcome)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (service_id, started_at) DO UPDATE SET
+				ended_at = EXCLUDED.ended_at, from_version = EXCLUDED.from_version, to_version = EXCLUDED.to_version,
+				outcome = EXCLUDED.outcome`,
+			ids[key(u.Project, u.Service)], u.Started.UTC(), u.Ended.UTC(), u.From, u.To, u.Outcome)
+	}
 
 	if err := tx.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("database: writing minute %s: %w", start.Format(time.RFC3339), err)
@@ -175,6 +193,9 @@ func upsertServices(ctx context.Context, tx pgx.Tx, m Minute) (map[string]int, e
 	}
 	for _, c := range m.Containers {
 		add(c.Project, c.Service)
+	}
+	for _, u := range m.Updates {
+		add(u.Project, u.Service)
 	}
 
 	start, end := m.Start.UTC(), m.Start.UTC().Add(time.Minute)
