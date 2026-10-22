@@ -30,13 +30,14 @@ func (c *clock) now() time.Time { return c.t }
 
 type fakeDocker struct {
 	list     []containers.Container
+	failed   []containers.ContainerError
 	stats    containers.StatsAnswer
 	err      error
 	statsErr error
 }
 
-func (f *fakeDocker) Containers(context.Context) ([]containers.Container, error) {
-	return f.list, f.err
+func (f *fakeDocker) Containers(context.Context) (containers.ContainersAnswer, error) {
+	return containers.ContainersAnswer{Containers: f.list, Failed: f.failed}, f.err
 }
 
 func (f *fakeDocker) Stats(context.Context) (containers.StatsAnswer, error) {
@@ -278,6 +279,32 @@ func TestDockerStale(t *testing.T) {
 	if s.Collectors[dockerCollector].State != snapshot.Unavailable ||
 		!slices.ContainsFunc(s.Attention, func(m string) bool { return strings.Contains(m, "connection refused") }) {
 		t.Errorf("docker collector %+v, attention %v", s.Collectors[dockerCollector], s.Attention)
+	}
+}
+
+// TestUninspectedContainerKept: a container Docker couldn't inspect this time
+// keeps its last known details, and attention says so.
+func TestUninspectedContainerKept(t *testing.T) {
+	plop, lys := running('a', "plop", "plop", ""), running('l', "lys", "lys", "")
+	d := &fakeDocker{list: []containers.Container{plop, lys}}
+	a, _ := newTestAgent(t, d, &fakeChecker{})
+	a.sampleDocker(context.Background())
+
+	d.list = []containers.Container{plop}
+	d.failed = []containers.ContainerError{{ID: lys.ID, Name: "lys", Reason: "Docker: 500 Internal Server Error"}}
+	a.sampleDocker(context.Background())
+	s := a.build()
+	if len(s.Projects) != 2 || s.Projects[0].Project != "lys" || s.Projects[0].State != state.Up {
+		t.Errorf("projects = %+v, want lys kept as it was", s.Projects)
+	}
+	if !slices.ContainsFunc(s.Attention, func(m string) bool { return strings.Contains(m, `couldn't inspect container "lys"`) }) {
+		t.Errorf("attention = %v", s.Attention)
+	}
+
+	d.failed = nil
+	a.sampleDocker(context.Background())
+	if s := a.build(); len(s.Projects) != 1 || len(a.uninspected) != 0 {
+		t.Errorf("once Docker answers again without it: %d projects, attention %v", len(s.Projects), a.uninspected)
 	}
 }
 

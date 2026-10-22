@@ -15,6 +15,15 @@ import (
 
 var now = time.Date(2026, 10, 21, 15, 4, 5, 0, time.UTC)
 
+// tokenState is what the fake consumer's token looks like; tests change it.
+var tokenState = "present"
+
+func withToken(t *testing.T, state string) {
+	t.Helper()
+	tokenState = state
+	t.Cleanup(func() { tokenState = "present" })
+}
+
 type fakeDB struct {
 	days       []store.DayCounts
 	response   map[string]int
@@ -73,7 +82,7 @@ func testCLI(t *testing.T, snap *snapshot.Snapshot, db *fakeDB) *CLI {
 			return *snap, nil
 		},
 		Consumers: func() []api.ConsumerInfo {
-			return []api.ConsumerInfo{{Name: "mobasity-web", Key: "SHARED_SONAR_MOBASITY_WEB_TOKEN", Scopes: []string{"status:read"}, Token: "missing"}}
+			return []api.ConsumerInfo{{Name: "mobasity-web", Key: "SHARED_SONAR_MOBASITY_WEB_TOKEN", Scopes: []string{"status:read"}, Token: tokenState}}
 		},
 	}
 	if db != nil {
@@ -232,7 +241,18 @@ func TestDays(t *testing.T) {
 	}
 }
 
+func TestStatusMissingToken(t *testing.T) {
+	withToken(t, "missing")
+	snap := testSnap(now)
+	_, _, err := run(t, testCLI(t, &snap, goodDB()), "status")
+	if err == nil {
+		t.Fatal("status with a missing token returned nil")
+	}
+	mustContain(t, "the error", err.Error(), "mobasity-web's API token (SHARED_SONAR_MOBASITY_WEB_TOKEN) is missing", "generate SHARED_SONAR_MOBASITY_WEB_TOKEN 64")
+}
+
 func TestConsumersAndMigrations(t *testing.T) {
+	withToken(t, "missing")
 	snap := testSnap(now)
 	c := testCLI(t, &snap, goodDB())
 	o, e, err := run(t, c, "consumers")
@@ -257,6 +277,24 @@ func TestConsumersAndMigrations(t *testing.T) {
 	var usage usageError
 	if _, _, err := run(t, c, "migrate up"); !errors.As(err, &usage) {
 		t.Errorf("migrate up: %v, want a usage error (the CLI only reads)", err)
+	}
+}
+
+// TestControlCharactersCleaned: nothing printed can carry a terminal control
+// sequence, whatever comes from outside.
+func TestControlCharactersCleaned(t *testing.T) {
+	snap := testSnap(now)
+	snap.Checks[0].LastError = "x509: certificate is valid for \x1b]0;owned\x07evil.example"
+	snap.Projects[0].Services[0].Containers[0].Version = "v1\x1b[2J"
+	c := testCLI(t, &snap, goodDB())
+	for _, line := range []string{"checks", "project plop"} {
+		o, e, _ := run(t, c, line)
+		if strings.ContainsAny(o+e, "\x1b\x07") {
+			t.Errorf("%s printed a control character:\n%q", line, o+e)
+		}
+	}
+	if got := clean("a\x1b[31mb\nc\td"); got != "a?[31mb\nc?d" {
+		t.Errorf("clean = %q", got)
 	}
 }
 

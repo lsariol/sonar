@@ -18,7 +18,7 @@ One Go binary, run as three containers:
 
 ## Running it locally
 
-Needs Go 1.27.1 and Docker Desktop.
+Needs Go 1.27.3 and Docker Desktop.
 
 ```bash
 go test ./...                                              # the tests

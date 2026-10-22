@@ -67,7 +67,7 @@ func (f *fakeSnapshots) Load() (snapshot.Snapshot, error) { return f.snap, f.err
 // private values that must never reach a public answer.
 var private = []string{
 	strings.Repeat("a", 64), "plop-plop", "v1.4.0", "https://plop.mobasity.com", "postgres:16.4",
-	"sparkdb", "cloudflared", "secret-sidecar", "16621363200", "28.7", "e2e-scratch",
+	"sparkdb", "cloudflared", "secret-sidecar", "16621363200", "28.7", "e2e-scratch", "cron", "nightly",
 }
 
 func f(v float64) *float64 { return &v }
@@ -83,7 +83,10 @@ func testSnapshot(at time.Time) snapshot.Snapshot {
 			{Project: "", State: state.Unknown, Evidence: state.ContainerOnly,
 				Services: []snapshot.Service{{Service: "e2e-scratch"}}},
 			{Project: "cloudflared", State: state.Up, Evidence: state.ContainerOnly},
-			{Project: "lys", State: state.Down, Evidence: state.ContainerOnly},
+			{Project: "cron", State: state.Unknown, Evidence: state.ContainerOnly,
+				Services: []snapshot.Service{{Service: "nightly", Counted: false}}},
+			{Project: "lys", State: state.Down, Evidence: state.ContainerOnly,
+				Services: []snapshot.Service{{Service: "lys", State: state.Down, Counted: true}}},
 			{Project: "plop", State: state.Up, Evidence: state.Checked, Services: []snapshot.Service{
 				{Service: "plop", State: state.Up, Counted: true, Usage: snapshot.Usage{MemoryBytes: &mem},
 					Containers: []snapshot.Container{{ID: strings.Repeat("a", 64), Name: "plop", Image: "plop-plop",
@@ -214,6 +217,27 @@ func TestAuth(t *testing.T) {
 		digest: sha(dashboard)})
 	if status, _, _ := do(t, s, "GET", "/v1/status", "Bearer "+dashboard); status != http.StatusForbidden {
 		t.Errorf("a token without status:read: %d, want 403", status)
+	}
+}
+
+// TestRefusalsDontFloodTheLog: a flood of bad tokens logs one line a minute.
+func TestRefusalsDontFloodTheLog(t *testing.T) {
+	s := newTestServer(t, &fakeReader{}, &fakeSnapshots{snap: testSnapshot(now)})
+	var log bytes.Buffer
+	s.opts.Log = slog.New(slog.NewTextHandler(&log, nil))
+	clock := now
+	s.opts.Now = func() time.Time { return clock }
+
+	for range 1000 {
+		do(t, s, "GET", "/v1/status", "Bearer wrong-token")
+	}
+	if n := strings.Count(log.String(), "refused requests"); n != 1 {
+		t.Fatalf("%d log lines for 1000 refusals in one minute, want 1:\n%s", n, log.String())
+	}
+	clock = clock.Add(time.Minute)
+	do(t, s, "GET", "/v1/status", "Bearer wrong-token")
+	if !strings.Contains(log.String(), "count=1000") {
+		t.Errorf("the next minute's summary should count the 1000 since:\n%s", log.String())
 	}
 }
 

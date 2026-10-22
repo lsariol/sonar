@@ -69,6 +69,7 @@ type Server struct {
 
 	status  *cache[int]
 	history *cache[string]
+	refused refusals
 }
 
 // New returns a server, or an error when a consumer's token is missing.
@@ -197,18 +198,38 @@ func (s *Server) require(sc scope, next http.HandlerFunc) http.HandlerFunc {
 		}
 		c, ok := identify(s.creds, token)
 		if !ok {
-			s.opts.Log.Warn("refused a request with an unknown token", "path", r.URL.Path, "from", r.RemoteAddr)
+			s.refused.note(s.opts.Log, s.opts.Now(), "an unknown token", r)
 			w.Header().Set("WWW-Authenticate", `Bearer realm="sonar", error="invalid_token"`)
 			writeError(w, http.StatusUnauthorized, "unknown token")
 			return
 		}
 		if !c.may(sc) {
-			s.opts.Log.Warn("refused a request outside its scope", "consumer", c.Name, "path", r.URL.Path, "needs", string(sc))
+			s.refused.note(s.opts.Log, s.opts.Now(), fmt.Sprintf("%s's token, which doesn't have %s", c.Name, sc), r)
 			writeError(w, http.StatusForbidden, fmt.Sprintf("this token doesn't have %s", sc))
 			return
 		}
 		next(w, r)
 	}
+}
+
+// refusals logs refused requests: the first at once, then at most one summary
+// a minute, so a flood of bad requests can't flood the log (and the disk).
+type refusals struct {
+	mu      sync.Mutex
+	logged  time.Time
+	pending int
+}
+
+func (f *refusals) note(log *slog.Logger, now time.Time, why string, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pending++
+	if now.Sub(f.logged) < time.Minute {
+		return
+	}
+	log.Warn("refused requests", "count", f.pending, "since", f.logged.UTC().Format(time.RFC3339),
+		"latest", why, "path", r.URL.Path, "from", r.RemoteAddr)
+	f.logged, f.pending = now, 0
 }
 
 func bearer(header string) (string, bool) {

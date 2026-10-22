@@ -32,6 +32,11 @@ const (
 	// failed ones before projects count as unknown.
 	dockerFreshFor = 60 * time.Second
 
+	// dockerRecordFor is how old the container list may be for project states
+	// to go into the history: two missed readings. Past that, the page keeps
+	// showing the last state (dockerFreshFor), but the history has a gap.
+	dockerRecordFor = 2*dockerEvery + 5*time.Second
+
 	dockerTimeout = 20 * time.Second
 	checkTimeout  = 10 * time.Second
 	checkParallel = 8
@@ -48,7 +53,7 @@ const (
 
 // Docker is where the agent gets containers and their stats: sonar-proxy.
 type Docker interface {
-	Containers(ctx context.Context) ([]containers.Container, error)
+	Containers(ctx context.Context) (containers.ContainersAnswer, error)
 	Stats(ctx context.Context) (containers.StatsAnswer, error)
 }
 
@@ -90,9 +95,10 @@ type Agent struct {
 	hostAt   time.Time
 	disk     *host.Disk
 
-	containers []containers.Container
-	readings   map[string]containers.Stats // last stats per container ID
-	usage      map[string]snapshot.Usage
+	containers  []containers.Container
+	uninspected []string                    // containers Docker couldn't inspect, for attention
+	readings    map[string]containers.Stats // last stats per container ID
+	usage       map[string]snapshot.Usage
 
 	targets []target
 	refused []string // labels that can't be checked, for attention
@@ -179,10 +185,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	every(diskEvery, false, a.sampleDisk)
 	every(dockerEvery, false, a.sampleDocker)
 	every(checksEvery, true, a.runChecks)
-	every(hostEvery, true, func(context.Context) {
-		a.sampleHost()
-		a.writeSnapshot()
-	})
+	every(hostEvery, true, func(context.Context) { a.tick() })
 	if a.opts.OpenStore != nil {
 		wg.Add(1)
 		go func() {
@@ -192,6 +195,16 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	wg.Wait()
 	return nil
+}
+
+// tick is the 5-second beat: read the host, write the snapshot, and close
+// finished minutes, whether or not the database is there to take them.
+func (a *Agent) tick() {
+	a.sampleHost()
+	a.writeSnapshot()
+	a.mu.Lock()
+	a.closeMinutes(a.opts.Now())
+	a.mu.Unlock()
 }
 
 func (a *Agent) sampleHost() {
@@ -244,7 +257,7 @@ func (a *Agent) sampleDisk(context.Context) {
 func (a *Agent) sampleDocker(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, dockerTimeout)
 	defer cancel()
-	list, err := a.opts.Docker.Containers(ctx)
+	answer, err := a.opts.Docker.Containers(ctx)
 	var stats containers.StatsAnswer
 	var statsErr error
 	if err == nil {
@@ -257,7 +270,7 @@ func (a *Agent) sampleDocker(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	a.containers = list
+	a.containers = a.keepUninspected(answer)
 	a.updateTargets()
 	a.record(statsCollector, statsErr)
 	var grown map[string]counters
@@ -265,6 +278,21 @@ func (a *Agent) sampleDocker(ctx context.Context) {
 		grown = a.updateUsage(stats)
 	}
 	a.addDockerMinute(a.opts.Now(), grown)
+}
+
+// keepUninspected is the new list, plus the last known details of containers
+// Docker couldn't inspect this time, so their services don't vanish.
+// Callers hold a.mu.
+func (a *Agent) keepUninspected(answer containers.ContainersAnswer) []containers.Container {
+	list := answer.Containers
+	a.uninspected = nil
+	for _, f := range answer.Failed {
+		a.uninspected = append(a.uninspected, fmt.Sprintf("docker: couldn't inspect container %q: %s", f.Name, f.Reason))
+		if i := slices.IndexFunc(a.containers, func(c containers.Container) bool { return c.ID == f.ID }); i >= 0 {
+			list = append(list, a.containers[i])
+		}
+	}
+	return list
 }
 
 // updateUsage turns two readings of each container's counters into rates,
@@ -428,7 +456,9 @@ func (a *Agent) record(name string, err error) {
 func (a *Agent) writeSnapshot() {
 	a.mu.Lock()
 	s := a.build()
-	a.addProjectMinute(s.GeneratedAt, s.Projects)
+	if last := a.collectors[dockerCollector].lastOK; !last.IsZero() && s.GeneratedAt.Sub(last) <= dockerRecordFor {
+		a.addProjectMinute(s.GeneratedAt, s.Projects)
+	}
 	a.mu.Unlock()
 
 	err := snapshot.Write(a.opts.StateDir, s)

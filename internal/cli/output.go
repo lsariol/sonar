@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode"
 
 	"golang.org/x/term"
 )
@@ -39,24 +40,41 @@ func colorize(color string, s string) string {
 	return color + s + reset
 }
 
+// clean replaces control characters, except line breaks, with "?". Much of
+// what the CLI prints comes from outside (container names, labels, websites'
+// errors), and a control character could take over the terminal.
+func clean(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r != '\n' && unicode.IsControl(r) {
+			return '?'
+		}
+		return r
+	}, s)
+}
+
+// cell is clean for one table cell or field: on a single line.
+func cell(s string) string {
+	return strings.ReplaceAll(clean(s), "\n", " ")
+}
+
 // out writes data to stdout, followed by a newline.
 func out(s string) {
-	fmt.Fprintln(stdout, s)
+	fmt.Fprintln(stdout, clean(s))
 }
 
 // warn reports something the user should notice or fix, e.g. wrong arguments.
 func warn(msg string) {
-	fmt.Fprintln(stderr, colorize(yellow, "! "+msg))
+	fmt.Fprintln(stderr, colorize(yellow, "! "+clean(msg)))
 }
 
 // fail reports an error.
 func fail(msg string) {
-	fmt.Fprintln(stderr, colorize(red, "✗ "+msg))
+	fmt.Fprintln(stderr, colorize(red, "✗ "+clean(msg)))
 }
 
 // info reports something neutral, such as a count after a list.
 func info(msg string) {
-	fmt.Fprintln(stderr, msg)
+	fmt.Fprintln(stderr, clean(msg))
 }
 
 // promptFor returns the prompt for an environment: "sonar (dev)> ", or
@@ -77,7 +95,11 @@ func promptFor(env string) string {
 func table(rows [][]string) {
 	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
 	for _, row := range rows {
-		fmt.Fprintln(tw, strings.Join(row, "\t"))
+		cells := make([]string, len(row))
+		for i, c := range row {
+			cells[i] = cell(c)
+		}
+		fmt.Fprintln(tw, strings.Join(cells, "\t"))
 	}
 	tw.Flush()
 }
@@ -86,7 +108,7 @@ func table(rows [][]string) {
 func fields(rows [][2]string) {
 	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
 	for _, r := range rows {
-		fmt.Fprintf(tw, "%s:\t%s\n", r[0], r[1])
+		fmt.Fprintf(tw, "%s:\t%s\n", cell(r[0]), cell(r[1]))
 	}
 	tw.Flush()
 }

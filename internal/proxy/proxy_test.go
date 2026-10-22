@@ -112,9 +112,13 @@ func TestContainers(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d: %s", status, body)
 	}
-	var list []containers.Container
-	if err := json.Unmarshal([]byte(body), &list); err != nil {
+	var answer containers.ContainersAnswer
+	if err := json.Unmarshal([]byte(body), &answer); err != nil {
 		t.Fatal(err)
+	}
+	list := answer.Containers
+	if len(answer.Failed) != 0 {
+		t.Errorf("failed = %+v, want none", answer.Failed)
 	}
 	if len(list) != 3 {
 		t.Fatalf("got %d containers, want 3 (the run leftover skipped): %+v", len(list), list)
@@ -248,6 +252,33 @@ func TestOnlyFixedDockerCalls(t *testing.T) {
 	}
 }
 
+// TestOneBadInspect: a container Docker can't inspect is reported, and the
+// others are still listed.
+func TestOneBadInspect(t *testing.T) {
+	fake := &fakeDocker{}
+	dockerSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, idD) && strings.HasSuffix(r.URL.Path, "/json") {
+			http.Error(w, "a stuck container", http.StatusInternalServerError)
+			return
+		}
+		fake.ServeHTTP(w, r)
+	}))
+	defer dockerSrv.Close()
+	s := &Server{docker: &docker{base: dockerSrv.URL, http: dockerSrv.Client()}, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	status, body := get(t, srv, "GET", "/v1/containers")
+	var answer containers.ContainersAnswer
+	json.Unmarshal([]byte(body), &answer)
+	if status != http.StatusOK || len(answer.Containers) != 2 {
+		t.Fatalf("status %d, %d containers; want 200 and the other 2", status, len(answer.Containers))
+	}
+	if len(answer.Failed) != 1 || answer.Failed[0].ID != idD || answer.Failed[0].Name != "lys" || !strings.Contains(answer.Failed[0].Reason, "500") {
+		t.Errorf("failed = %+v, want lys with Docker's 500", answer.Failed)
+	}
+}
+
 func TestHealth(t *testing.T) {
 	fake, srv := setup(t)
 	if status, body := get(t, srv, "GET", "/healthz"); status != http.StatusOK {
@@ -300,8 +331,8 @@ func TestServeOnSocket(t *testing.T) {
 	}
 
 	list, err := client.Containers(context.Background())
-	if err != nil || len(list) != 3 {
-		t.Errorf("Containers = %d, %v; want 3", len(list), err)
+	if err != nil || len(list.Containers) != 3 {
+		t.Errorf("Containers = %d, %v; want 3", len(list.Containers), err)
 	}
 	stats, err := client.Stats(context.Background())
 	if err != nil || len(stats.Stats) != 2 {

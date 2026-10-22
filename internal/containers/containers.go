@@ -52,6 +52,20 @@ type Stats struct {
 	PIDs          uint64    `json:"pids"`
 }
 
+// ContainersAnswer is the answer to GET /v1/containers: every container, and
+// the ones Docker couldn't inspect, which are left out of the list.
+type ContainersAnswer struct {
+	Containers []Container      `json:"containers"`
+	Failed     []ContainerError `json:"failed"`
+}
+
+// ContainerError says why one container is missing from the list.
+type ContainerError struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+}
+
 // StatsAnswer is the answer to GET /v1/stats: every running container's
 // stats, and the ones that couldn't be read.
 type StatsAnswer struct {

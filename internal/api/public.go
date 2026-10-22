@@ -190,8 +190,8 @@ func buildStatus(now time.Time, snap *snapshot.Snapshot, days int, rows []store.
 	var up, degraded, down, count int
 	if snap != nil {
 		for _, p := range snap.Projects {
-			if !IsPublic(p.Project) {
-				continue
+			if !IsPublic(p.Project) || !slices.ContainsFunc(p.Services, func(s snapshot.Service) bool { return s.Counted }) {
+				continue // excluded, or only one-off jobs: nothing to be up or down
 			}
 			st := p.State
 			if !fresh {

@@ -51,6 +51,14 @@ func (c *CLI) status(ctx context.Context, args []string) error {
 		}
 		rows = append(rows, [2]string{"Database", dbState})
 	}
+	if c.opts.Consumers != nil {
+		for _, k := range c.opts.Consumers() {
+			if k.Token != "present" {
+				problems = append(problems, fmt.Sprintf("%s's API token (%s) is %s: in Cove, \"generate %s 64\", then redeploy Sonar and %s",
+					k.Name, k.Key, k.Token, k.Key, k.Name))
+			}
+		}
+	}
 	fields(rows)
 
 	if snapErr == nil {

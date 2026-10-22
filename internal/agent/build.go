@@ -63,6 +63,7 @@ func (a *Agent) build() snapshot.Snapshot {
 		checksByProject[t.project] = append(checksByProject[t.project], c.State)
 	}
 	s.Attention = append(s.Attention, a.refused...)
+	s.Attention = append(s.Attention, a.uninspected...)
 
 	dockerLastOK := a.collectors[dockerCollector].lastOK
 	dockerFresh := !dockerLastOK.IsZero() && now.Sub(dockerLastOK) <= dockerFreshFor

@@ -148,6 +148,27 @@ func TestCheckOutcomes(t *testing.T) {
 	}
 }
 
+// TestHostileStatusLine: a site's status line can carry terminal control
+// codes; the check's error uses Go's wording instead.
+func TestHostileStatusLine(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, buf, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer conn.Close()
+		buf.WriteString("HTTP/1.1 500 \x1b[2J\x1b]0;owned\x07Totally fine\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+		buf.Flush()
+	}))
+	defer srv.Close()
+
+	r := testChecker(t, srv, local, true).Check(context.Background(), "https://plop.mobasity.com/")
+	if r.Outcome != Failed || r.Status != 500 || r.Error != "HTTP 500 Internal Server Error" {
+		t.Errorf("result = %+v, want Go's own wording for a 500", r)
+	}
+}
+
 func TestCheckTimeout(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {

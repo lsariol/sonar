@@ -20,7 +20,7 @@ func TestClientReadsAnswers(t *testing.T) {
 	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/containers":
-			io.WriteString(w, `[{"id":"x","name":"plop","project":"plop","service":"plop","state":"running","health":"healthy"}]`)
+			io.WriteString(w, `{"containers":[{"id":"x","name":"plop","project":"plop","service":"plop","state":"running","health":"healthy"}],"failed":[]}`)
 		case "/v1/stats":
 			io.WriteString(w, `{"stats":[{"id":"x","cpu_ns":5}],"failed":[{"id":"y","reason":"timed out"}]}`)
 		case "/healthz":
@@ -30,7 +30,7 @@ func TestClientReadsAnswers(t *testing.T) {
 	ctx := context.Background()
 
 	list, err := c.Containers(ctx)
-	if err != nil || len(list) != 1 || list[0].Health != "healthy" {
+	if err != nil || len(list.Containers) != 1 || list.Containers[0].Health != "healthy" {
 		t.Errorf("Containers = %+v, %v", list, err)
 	}
 	stats, err := c.Stats(ctx)

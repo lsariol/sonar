@@ -112,18 +112,19 @@ func (s *Server) containers(w http.ResponseWriter, r *http.Request) {
 			found[i] = &out
 		}
 	})
-	if err := errors.Join(errs...); err != nil {
-		s.fail(w, err)
-		return
-	}
 
-	answer := make([]containers.Container, 0, len(found))
-	for _, c := range found {
-		if c != nil {
-			answer = append(answer, *c)
+	// One container Docker can't inspect mustn't hide all the others.
+	answer := containers.ContainersAnswer{Containers: []containers.Container{}, Failed: []containers.ContainerError{}}
+	for i, c := range found {
+		switch {
+		case c != nil:
+			answer.Containers = append(answer.Containers, *c)
+		case errs[i] != nil:
+			s.log.Warn("Docker couldn't inspect a container", "id", list[i].ID, "err", errs[i])
+			answer.Failed = append(answer.Failed, containers.ContainerError{ID: list[i].ID, Name: list[i].name(), Reason: errs[i].Error()})
 		}
 	}
-	slices.SortFunc(answer, func(a, b containers.Container) int {
+	slices.SortFunc(answer.Containers, func(a, b containers.Container) int {
 		return cmp.Or(cmp.Compare(a.Project, b.Project), cmp.Compare(a.Service, b.Service), cmp.Compare(a.Name, b.Name))
 	})
 	writeJSON(w, http.StatusOK, answer)

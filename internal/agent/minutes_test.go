@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/lsariol/sonar/internal/checks"
 	"github.com/lsariol/sonar/internal/containers"
 	"github.com/lsariol/sonar/internal/state"
@@ -150,6 +152,74 @@ func TestFlushRetriesInOrder(t *testing.T) {
 	}
 }
 
+// TestMinutesCloseWithoutDatabase: with sparkdb unreachable from the start,
+// finished minutes still close and the queue stays at its cap.
+func TestMinutesCloseWithoutDatabase(t *testing.T) {
+	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", "")}}
+	a, clk := newTestAgent(t, d, &fakeChecker{})
+	for n := range 600 {
+		clk.t = start.Add(time.Duration(n) * time.Minute)
+		a.sampleDocker(context.Background())
+		a.tick()
+	}
+	if len(a.buckets) > 2 || len(a.pending) != maxPending {
+		t.Errorf("after 600 minutes: %d open, %d queued; want at most 2 open and %d queued", len(a.buckets), len(a.pending), maxPending)
+	}
+}
+
+// TestNoHistoryWhileBlind: when Docker stops answering, the page keeps the
+// last state for a while, but the history doesn't record it as observed.
+func TestNoHistoryWhileBlind(t *testing.T) {
+	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", "")}}
+	a, clk := newTestAgent(t, d, &fakeChecker{})
+	minute := start.Truncate(time.Minute)
+	clk.t = minute.Add(45 * time.Second)
+	a.sampleDocker(context.Background())
+	a.writeSnapshot()
+
+	d.err = errors.New("proxy: connection refused")
+	clk.t = minute.Add(time.Minute + 15*time.Second)
+	a.sampleDocker(context.Background())
+	a.writeSnapshot()
+	if p := a.build().Projects[0]; p.State != state.Up {
+		t.Fatalf("the page after 30 s blind: %v, want the last state kept", p.State)
+	}
+	if b := a.buckets[minute.Add(time.Minute)]; b != nil && len(b.projects) != 0 {
+		t.Errorf("the history recorded %v while Docker didn't answer", b.projects)
+	}
+	if len(a.buckets[minute].projects) != 1 {
+		t.Error("the minute Docker answered should be recorded")
+	}
+}
+
+// TestFlushOnStop: stopping the agent writes the queue and the current,
+// partial minute.
+func TestFlushOnStop(t *testing.T) {
+	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", "")}}
+	a, clk := newTestAgent(t, d, &fakeChecker{})
+	db := &fakeStore{}
+	a.collectors[databaseCollector] = &collector{every: time.Minute}
+	a.opts.OpenStore = func(context.Context) (Store, error) { return db, nil }
+
+	minute := start.Truncate(time.Minute)
+	clk.t = minute.Add(20 * time.Second)
+	a.sampleDocker(context.Background())
+	a.tick()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.runDatabase(ctx); close(done) }()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	<-done
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if len(db.written) != 1 || !db.written[0].Start.Equal(minute) || db.written[0].Host == nil {
+		t.Errorf("written on stop: %+v, want the current minute", db.written)
+	}
+}
+
 func TestPendingCap(t *testing.T) {
 	a, _ := newTestAgent(t, &fakeDocker{}, &fakeChecker{})
 	first := start.Truncate(time.Minute)
@@ -170,6 +240,14 @@ func TestWritesToDatabase(t *testing.T) {
 		t.Skip("no test database: run scripts/test-db.sh up, then eval \"$(scripts/test-db.sh env)\"")
 	}
 	ctx := context.Background()
+	lock, err := pgx.Connect(ctx, app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close(ctx)
+	if _, err := lock.Exec(ctx, "SELECT pg_advisory_lock($1)", store.TestLock); err != nil {
+		t.Fatal(err)
+	}
 	d := &fakeDocker{list: []containers.Container{running('z', "agent-test", "web", "")}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})
 	a.collectors[databaseCollector] = &collector{every: time.Minute}

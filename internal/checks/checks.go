@@ -236,7 +236,8 @@ func (c *Checker) Check(ctx context.Context, raw string) Result {
 
 	switch {
 	case resp.StatusCode < 200 || resp.StatusCode >= 400:
-		r.Error = "HTTP " + resp.Status
+		// Go's wording, not the site's: a status line can carry anything.
+		r.Error = fmt.Sprintf("HTTP %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
 	case readErr != nil:
 		r.Error = "reading the answer: " + describe(readErr)
 	case r.Latency > c.slowAfter:

@@ -47,6 +47,21 @@ func open(t *testing.T) *Store {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
+
+	// go test runs packages at once; this lock makes their database tests
+	// take turns (internal/agent takes it too).
+	lock, err := s.pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lock.Exec(ctx, "SELECT pg_advisory_lock($1)", TestLock); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		lock.Exec(context.Background(), "SELECT pg_advisory_unlock($1)", TestLock)
+		lock.Release()
+	})
+
 	for _, table := range []string{"containers", "host_minutes", "service_minutes", "check_minutes",
 		"project_minutes", "project_days", "service_days", "services"} {
 		if _, err := s.pool.Exec(ctx, "DELETE FROM sonar."+table); err != nil {

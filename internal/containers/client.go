@@ -39,13 +39,12 @@ func NewClient(socket string) *Client {
 	}
 }
 
-// Containers returns every container, stopped ones included.
-func (c *Client) Containers(ctx context.Context) ([]Container, error) {
-	var list []Container
-	if err := c.get(ctx, "/v1/containers", &list); err != nil {
-		return nil, err
-	}
-	return list, nil
+// Containers returns every container, stopped ones included, and the ones
+// Docker couldn't inspect.
+func (c *Client) Containers(ctx context.Context) (ContainersAnswer, error) {
+	var answer ContainersAnswer
+	err := c.get(ctx, "/v1/containers", &answer)
+	return answer, err
 }
 
 // Stats returns every running container's stats.

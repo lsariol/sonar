@@ -21,6 +21,7 @@ const (
 	pruneEvery   = time.Hour
 	connectRetry = 15 * time.Second
 	dbTimeout    = 30 * time.Second
+	stopFlushFor = 5 * time.Second // inside docker stop's 10 s
 )
 
 // Store is where the history goes: sonar_db, as sonar_app.
@@ -57,6 +58,7 @@ func (a *Agent) runDatabase(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			a.flushOnStop(db)
 			return
 		case <-t.C:
 		}
@@ -86,6 +88,18 @@ func (a *Agent) runDatabase(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// flushOnStop closes every open minute, the current one too (as a partial
+// minute), and writes the queue before the agent exits, within docker stop's
+// grace period.
+func (a *Agent) flushOnStop(db Store) {
+	a.mu.Lock()
+	a.closeMinutes(a.opts.Now().Add(time.Minute + flushDelay))
+	a.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), stopFlushFor)
+	defer cancel()
+	a.flush(ctx, db)
 }
 
 // flush closes finished minutes and writes the queue in order, stopping at

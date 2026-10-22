@@ -50,8 +50,17 @@ func newDocker(socket string) *docker {
 // listed is one container from the list: enough to pick what to inspect.
 type listed struct {
 	ID     string            `json:"Id"`
+	Names  []string          `json:"Names"`
 	State  string            `json:"State"`
 	Labels map[string]string `json:"Labels"`
+}
+
+// name is the container's name without Docker's leading slash.
+func (l listed) name() string {
+	if len(l.Names) == 0 {
+		return ""
+	}
+	return strings.TrimPrefix(l.Names[0], "/")
 }
 
 // inspected holds the inspect fields Sonar uses. Fields not declared here,
