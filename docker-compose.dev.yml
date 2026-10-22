@@ -1,5 +1,5 @@
 # Local development on Docker Desktop. Lighthouse never reads this file.
-#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 # The ${...} values come from .env (copy .env.example).
 
 services:

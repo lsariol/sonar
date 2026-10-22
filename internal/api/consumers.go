@@ -24,7 +24,7 @@ type consumer struct {
 }
 
 // consumers are the callers allowed to use the API. Adding one: a line here,
-// its key in Cove, and its pass-through line in compose.yaml.
+// its key in Cove, and its pass-through line in docker-compose.yml.
 var consumers = []consumer{
 	{Name: "mobasity-web", Key: "SHARED_SONAR_MOBASITY_WEB_TOKEN", Scopes: []scope{statusRead}},
 }
@@ -47,7 +47,7 @@ func loadCredentials(getenv func(string) string, list []consumer) ([]credential,
 		token := strings.TrimSpace(getenv(c.Key))
 		switch {
 		case token == "":
-			return nil, fmt.Errorf("api: %s's token, %s, isn't set: create it in Cove (generate %s 64) and pass it through in compose.yaml", c.Name, c.Key, c.Key)
+			return nil, fmt.Errorf("api: %s's token, %s, isn't set: create it in Cove (generate %s 64) and pass it through in docker-compose.yml", c.Name, c.Key, c.Key)
 		case len(token) < minTokenLength:
 			return nil, fmt.Errorf("api: %s's token, %s, is %d characters; it needs at least %d: generate a new one in Cove (generate %s 64)", c.Name, c.Key, len(token), minTokenLength, c.Key)
 		}

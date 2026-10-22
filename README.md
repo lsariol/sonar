@@ -25,7 +25,7 @@ go test ./...                                              # the tests
 docker build --target test .                               # as Lighthouse runs them, with -race
 scripts/test-db.sh up && eval "$(scripts/test-db.sh env)"  # a throwaway Postgres: the database tests run too
 scripts/test-db.sh down                                    # remove it
-docker compose -f compose.yaml -f compose.dev.yaml up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 The CLI: `docker exec -it sonar-api /sonar shell`, then `help`.
