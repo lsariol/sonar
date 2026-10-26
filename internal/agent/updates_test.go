@@ -245,3 +245,27 @@ func TestScaleUpIsNotAnUpdate(t *testing.T) {
 		t.Error("adding a replica isn't an update")
 	}
 }
+
+// TestSwapBetweenReadings: a quick deploy can finish within one 10-second
+// gap, so the old container is gone and the new one running by the next
+// reading. It's still an update.
+func TestSwapBetweenReadings(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	dp.reading(dp.container('a', "v0.1.0", "running", "healthy", time.Hour))
+	if s := dp.reading(dp.container('b', "v0.1.1", "running", "healthy", 4*time.Second)); s != state.Up {
+		t.Errorf("after the swap: %v, want up", s)
+	}
+	if got := dp.finished(); len(got) != 1 || got[0] != "v0.1.0→v0.1.1 ok" {
+		t.Errorf("recorded updates = %v, want one", got)
+	}
+
+	dp = newDeploy(t, &fakeChecker{})
+	dp.reading(dp.container('a', "v0.1.0", "running", "healthy", time.Hour))
+	if s := dp.reading(dp.container('b', "v0.1.1", "running", "starting", 4*time.Second)); s != state.Updating {
+		t.Errorf("new one still starting: %v, want updating", s)
+	}
+	dp.reading(dp.container('b', "v0.1.1", "running", "healthy", 14*time.Second))
+	if got := dp.finished(); len(got) != 1 || got[0] != "v0.1.0→v0.1.1 ok" {
+		t.Errorf("recorded updates = %v, want one", got)
+	}
+}
