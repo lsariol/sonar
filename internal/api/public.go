@@ -3,6 +3,7 @@ package api
 import (
 	"cmp"
 	"math"
+	"regexp"
 	"slices"
 	"time"
 
@@ -38,6 +39,7 @@ type overallStatus struct {
 type projectStatus struct {
 	Project    string     `json:"project"`
 	State      string     `json:"state"`
+	Version    *string    `json:"version"` // nil when unknown
 	Evidence   string     `json:"evidence"`
 	ResponseMs *int       `json:"response_ms"`
 	Uptime30d  Uptime     `json:"uptime_30d"`
@@ -72,12 +74,14 @@ type historyAnswer struct {
 }
 
 // publicUpdate is a deploy as the graph marks it: which project, when, how
-// long, and whether it came up. Versions stay private.
+// long, between which versions, and whether it came up.
 type publicUpdate struct {
 	Project string    `json:"project"`
 	Started time.Time `json:"started"`
 	Ended   time.Time `json:"ended"`
 	Seconds int       `json:"seconds"`
+	From    *string   `json:"from"` // nil when unknown
+	To      *string   `json:"to"`
 	Outcome string    `json:"outcome"`
 }
 
@@ -109,11 +113,54 @@ func publicState(s state.State) string {
 	return "unknown"
 }
 
+// releaseVersion matches a release tag such as v1.3.0, 1.3.0 or v1.3.0-rc.1.
+var releaseVersion = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$`)
+
+// publicVersion is v when it's a release version, else nil, so commit IDs,
+// dev builds and empty labels never go out.
+func publicVersion(v string) *string {
+	if len(v) > 64 || !releaseVersion.MatchString(v) {
+		return nil
+	}
+	return &v
+}
+
+// projectVersion is the version a project's counted services run; a service
+// being replaced still runs the one it's replacing. nil when a container has
+// none, or when they disagree.
+func projectVersion(p snapshot.Project) *string {
+	running := ""
+	for _, s := range p.Services {
+		if !s.Counted {
+			continue
+		}
+		var versions []string
+		if s.Update != nil {
+			versions = []string{s.Update.From}
+		} else {
+			for _, c := range s.Containers {
+				versions = append(versions, c.Version)
+			}
+		}
+		for _, v := range versions {
+			if v == "" || (running != "" && v != running) {
+				return nil
+			}
+			running = v
+		}
+	}
+	return publicVersion(running)
+}
+
+func sameVersion(a, b *string) bool {
+	return a != nil && b != nil && *a == *b
+}
+
 // mergeUpdates turns updates of services into updates of projects: different
 // services of one project replaced in the same deploy (overlapping, or within
-// 30 s) become one, which didn't come up if any of them didn't. Two updates of
-// one service are always two (a failed deploy, then its rollback). Only
-// public projects are kept.
+// 30 s) become one, which didn't come up if any of them didn't, and keeps a
+// version only if they all agree. Two updates of one service are always two
+// (a failed deploy, then its rollback). Only public projects are kept.
 func mergeUpdates(updates []store.Update) []publicUpdate {
 	sorted := slices.Clone(updates)
 	slices.SortFunc(sorted, func(a, b store.Update) int {
@@ -135,12 +182,19 @@ func mergeUpdates(updates []store.Update) []publicUpdate {
 			if u.Outcome != "ok" {
 				last.Outcome = u.Outcome
 			}
+			if !sameVersion(last.From, publicVersion(u.From)) {
+				last.From = nil
+			}
+			if !sameVersion(last.To, publicVersion(u.To)) {
+				last.To = nil
+			}
 			last.Seconds = int(last.Ended.Sub(last.Started).Round(time.Second) / time.Second)
 			continue
 		}
 		services = map[string]bool{u.Service: true}
 		out = append(out, publicUpdate{Project: u.Project, Started: u.Started.UTC(), Ended: u.Ended.UTC(),
-			Seconds: int(u.Ended.Sub(u.Started).Round(time.Second) / time.Second), Outcome: u.Outcome})
+			Seconds: int(u.Ended.Sub(u.Started).Round(time.Second) / time.Second),
+			From:    publicVersion(u.From), To: publicVersion(u.To), Outcome: u.Outcome})
 	}
 	slices.SortFunc(out, func(a, b publicUpdate) int { return a.Started.Compare(b.Started) })
 	return out
@@ -259,7 +313,7 @@ func buildStatus(now time.Time, snap *snapshot.Snapshot, days int, rows []store.
 				st = state.Unknown
 			}
 			strip, up30, up90 := ProjectDays(now, days, byProject[p.Project], updatesOf[p.Project])
-			ps := projectStatus{Project: p.Project, State: publicState(st), Evidence: string(p.Evidence),
+			ps := projectStatus{Project: p.Project, State: publicState(st), Version: projectVersion(p), Evidence: string(p.Evidence),
 				Uptime30d: up30, Uptime90d: up90, Days: strip}
 			if ms, ok := response[p.Project]; ok {
 				ps.ResponseMs = &ms

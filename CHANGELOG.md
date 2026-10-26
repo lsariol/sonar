@@ -2,6 +2,15 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
+## v0.2.0 (unreleased)
+
+### Added
+- The status shows each project's running version, such as `v1.3.0`, so a problem can be traced to the version that brought it.
+- Deploy markers in the history show the versions before and after, such as `v1.2.0` → `v1.3.0`, including for a deploy that failed.
+
+### Changed
+- `sonar-api` declares its port, 2500, so `docker ps` shows it. Nothing new can connect.
+
 ## v0.1.0 (2026-10-22)
 
 The first release: Sonar watches the server and every project on it, and keeps the record for the status page.

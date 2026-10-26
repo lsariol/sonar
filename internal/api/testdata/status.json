@@ -12,6 +12,7 @@
     {
       "project": "lys",
       "state": "down",
+      "version": null,
       "evidence": "container",
       "response_ms": null,
       "uptime_30d": {
@@ -63,6 +64,7 @@
     {
       "project": "plop",
       "state": "operational",
+      "version": "v1.4.0",
       "evidence": "checked",
       "response_ms": 51,
       "uptime_30d": {

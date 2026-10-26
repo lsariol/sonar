@@ -69,10 +69,11 @@ type fakeSnapshots struct {
 
 func (f *fakeSnapshots) Load() (snapshot.Snapshot, error) { return f.snap, f.err }
 
-// private values that must never reach a public answer.
+// private values that must never reach a public answer. Release versions of
+// public projects may; an excluded project's (16.3) may not.
 var private = []string{
-	strings.Repeat("a", 64), "plop-plop", "v1.4.0", "https://plop.mobasity.com", "postgres:16.4",
-	"sparkdb", "cloudflared", "secret-sidecar", "16621363200", "28.7", "e2e-scratch", "cron", "nightly", "v1.5.0", "v1.3.9", "worker",
+	strings.Repeat("a", 64), "plop-plop", "https://plop.mobasity.com", "postgres:16.4", "16.3",
+	"sparkdb", "cloudflared", "secret-sidecar", "16621363200", "28.7", "e2e-scratch", "cron", "nightly", "worker",
 }
 
 func f(v float64) *float64 { return &v }
@@ -274,7 +275,7 @@ func TestNothingPrivate(t *testing.T) {
 	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51}, buckets: testBuckets(), updates: testUpdates()}
 	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now)})
 	allowed := []string{"generated_at", "fresh", "overall", "state", "uptime_30d", "uptime_90d", "pct", "coverage_pct",
-		"projects", "project", "evidence", "response_ms", "days", "date", "uptime_pct",
+		"projects", "project", "version", "evidence", "response_ms", "days", "date", "uptime_pct",
 		"range", "from", "to", "bucket_seconds", "points", "t", "cpu_pct", "mem_used_pct", "avg", "min", "max",
 		"updates", "started", "ended", "seconds", "outcome"}
 
