@@ -2,7 +2,7 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
-## v0.2.0 (unreleased)
+## v0.2.0 (2026-10-26)
 
 ### Added
 - The status shows each project's running version, such as `v1.3.0`, so a problem can be traced to the version that brought it.
