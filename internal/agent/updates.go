@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/lsariol/sonar/internal/containers"
+	"github.com/lsariol/sonar/internal/snapshot"
 	"github.com/lsariol/sonar/internal/state"
 	"github.com/lsariol/sonar/internal/store"
 )
@@ -111,6 +112,50 @@ func (a *Agent) trackUpdates(now time.Time) {
 		delete(a.updates, k)
 		if s, ok := a.seen[k]; ok {
 			a.seen[k] = seenService{settled: versions(byService[k]), newcomer: map[string]time.Time{}, at: s.at}
+		}
+	}
+}
+
+// resume picks up what the previous agent saw from the snapshot it left, so a
+// deploy that replaced the agent itself, or ran while it was away, is still
+// an update.
+func (a *Agent) resume() {
+	snap, err := snapshot.Read(a.opts.StateDir)
+	if err != nil {
+		a.opts.Log.Info("starting without the previous agent's view", "reason", err)
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.resumeFrom(snap, a.opts.Now())
+}
+
+// resumeFrom seeds each service's settled containers from snap, when it's at
+// most 10 minutes old. A deploy's new containers (created but not started,
+// or newer than an update in progress) are left out, so the next reading
+// sees them as newcomers. Callers hold a.mu.
+func (a *Agent) resumeFrom(snap snapshot.Snapshot, now time.Time) {
+	if age := now.Sub(snap.GeneratedAt); age < 0 || age > forgetAfter {
+		return
+	}
+	for _, p := range snap.Projects {
+		if p.Project == "" {
+			continue
+		}
+		for _, s := range p.Services {
+			if !s.Counted {
+				continue
+			}
+			settled := make(map[string]string)
+			for _, c := range s.Containers {
+				if c.State == "created" || (s.Update != nil && !c.CreatedAt.Before(s.Update.Since)) {
+					continue
+				}
+				settled[c.ID] = c.Version
+			}
+			if len(settled) > 0 {
+				a.seen[serviceKey{p.Project, s.Service}] = seenService{settled: settled, newcomer: map[string]time.Time{}, at: snap.GeneratedAt}
+			}
 		}
 	}
 }

@@ -2,12 +2,14 @@ package agent
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/lsariol/sonar/internal/checks"
 	"github.com/lsariol/sonar/internal/containers"
 	"github.com/lsariol/sonar/internal/state"
+	"github.com/lsariol/sonar/internal/store"
 )
 
 // deploy steps the agent through readings 10 s apart, each with list as the
@@ -267,5 +269,112 @@ func TestSwapBetweenReadings(t *testing.T) {
 	dp.reading(dp.container('b', "v0.1.1", "running", "healthy", 14*time.Second))
 	if got := dp.finished(); len(got) != 1 || got[0] != "v0.1.0→v0.1.1 ok" {
 		t.Errorf("recorded updates = %v, want one", got)
+	}
+}
+
+func sonarContainer(id byte, service, version, st, health string, created time.Time) containers.Container {
+	c := running(id, "sonar", service, "")
+	c.Version, c.State, c.Health, c.CreatedAt = version, st, health, created
+	return c
+}
+
+// restartAgent writes the old agent's snapshot, as it does every 5 s, then
+// starts a new agent on the same state folder after gap, as a deploy of
+// Sonar itself does.
+func (dp *deploy) restartAgent(gap time.Duration) {
+	dp.t.Helper()
+	dp.a.writeSnapshot()
+	dp.clk.t = dp.clk.t.Add(gap)
+	dp.a = New(dp.a.opts)
+	dp.a.resume()
+}
+
+func (dp *deploy) recorded() []store.Update {
+	var out []store.Update
+	for _, b := range dp.a.buckets {
+		out = append(out, b.updates...)
+	}
+	return out
+}
+
+var sonarServices = []string{"sonar-agent", "sonar-api", "sonar-proxy"}
+
+// sonarAt is Sonar's three containers: ids a, b, c (or d, e, f).
+func sonarAt(first byte, version, st, health string, created time.Time) []containers.Container {
+	var out []containers.Container
+	for i, s := range sonarServices {
+		out = append(out, sonarContainer(first+byte(i), s, version, st, health, created))
+	}
+	return out
+}
+
+// TestOwnDeploy: Compose creates Sonar's new containers beside the old ones,
+// the old agent's last snapshot shows both, then the old agent is replaced.
+// The new agent still records the update of each service.
+func TestOwnDeploy(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	old := sonarAt('a', "v0.2.0", "running", "healthy", dp.clk.t.Add(-time.Hour))
+	dp.reading(old...)
+	created := dp.clk.t.Add(5 * time.Second)
+	dp.reading(append(slices.Clone(old), sonarAt('d', "v0.2.1", "created", "none", created)...)...)
+	dp.restartAgent(3 * time.Second)
+
+	dp.reading(sonarAt('d', "v0.2.1", "running", "healthy", created)...)
+	got := dp.recorded()
+	if len(got) != 3 {
+		t.Fatalf("recorded %d updates, want one per service: %+v", len(got), got)
+	}
+	for _, u := range got {
+		if u.Project != "sonar" || u.From != "v0.2.0" || u.To != "v0.2.1" || u.Outcome != "ok" || !u.Started.Equal(created) {
+			t.Errorf("update = %+v, want sonar v0.2.0 → v0.2.1, ok, from the new containers' creation", u)
+		}
+	}
+}
+
+// TestOwnDeployMidUpdate: the old agent had already seen the swap begin.
+func TestOwnDeployMidUpdate(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	old := sonarContainer('a', "sonar-api", "v0.2.0", "running", "healthy", dp.clk.t.Add(-time.Hour))
+	dp.reading(old)
+	created := dp.clk.t.Add(5 * time.Second)
+	stopped := old
+	stopped.State = "exited"
+	at := dp.clk.t.Add(8 * time.Second)
+	stopped.FinishedAt = &at
+	dp.reading(stopped, sonarContainer('d', "sonar-api", "v0.2.1", "created", "none", created))
+	if len(dp.a.updates) != 1 {
+		t.Fatal("the old agent should have seen the update begin")
+	}
+	dp.restartAgent(3 * time.Second)
+
+	dp.reading(sonarContainer('d', "sonar-api", "v0.2.1", "running", "healthy", created))
+	if got := dp.recorded(); len(got) != 1 || got[0].From != "v0.2.0" || got[0].To != "v0.2.1" || !got[0].Started.Equal(created) {
+		t.Errorf("recorded = %+v, want one update v0.2.0 → v0.2.1 from the creation", got)
+	}
+}
+
+// TestAgentRestartIsNotAnUpdate: the same containers before and after (a
+// restart of the agent, or a server reboot: containers keep their IDs).
+func TestAgentRestartIsNotAnUpdate(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	cs := sonarAt('a', "v0.2.0", "running", "healthy", dp.clk.t.Add(-time.Hour))
+	dp.reading(cs...)
+	dp.restartAgent(3 * time.Second)
+	dp.reading(cs...)
+	dp.reading(cs...)
+	if got := dp.recorded(); len(got) != 0 {
+		t.Errorf("recorded %+v, want nothing", got)
+	}
+}
+
+// TestStaleSnapshotIsIgnored: after more than 10 minutes away, the new agent
+// starts fresh rather than guess.
+func TestStaleSnapshotIsIgnored(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	dp.reading(sonarAt('a', "v0.2.0", "running", "healthy", dp.clk.t.Add(-time.Hour))...)
+	dp.restartAgent(11 * time.Minute)
+	dp.reading(sonarAt('d', "v0.2.1", "running", "healthy", dp.clk.t.Add(-time.Minute))...)
+	if got := dp.recorded(); len(got) != 0 {
+		t.Errorf("recorded %+v, want nothing", got)
 	}
 }

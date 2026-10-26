@@ -164,6 +164,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	if err := os.MkdirAll(a.opts.StateDir, 0o755); err != nil {
 		return fmt.Errorf("agent: %w: is the state volume mounted?", err)
 	}
+	a.resume()
 	a.sampleDisk(ctx)
 	a.sampleDocker(ctx)
 
