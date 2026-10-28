@@ -2,6 +2,11 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
+## v0.2.2 (unreleased)
+
+### Added
+- `scripts/db/rename-project.sql` moves a renamed project's history to its new name, so it keeps its uptime and days. It previews first and changes nothing without `apply=1`.
+
 ## v0.2.1 (2026-10-26)
 
 ### Fixed
