@@ -49,7 +49,9 @@ type update struct {
 // an update, which lasts until the newcomers are ready, or 2 minutes. A
 // newcomer that comes up while every settled container keeps running is a
 // replica being added. A container restarting in place keeps its ID, so a
-// crash is never an update. Callers hold a.mu.
+// crash is never an update. A service that appears with only just-created
+// containers, once the agent has a baseline, is a first deploy: an update
+// with no version before it. Callers hold a.mu.
 func (a *Agent) trackUpdates(now time.Time) {
 	byService := make(map[serviceKey][]containers.Container)
 	for _, c := range a.containers {
@@ -63,8 +65,12 @@ func (a *Agent) trackUpdates(now time.Time) {
 
 	for k, cs := range byService {
 		s, known := a.seen[k]
+		first := false
 		if !known {
 			s = seenService{settled: versions(cs), newcomer: map[string]time.Time{}}
+			if first = a.watching && justCreated(cs, now); first {
+				s.settled = map[string]string{}
+			}
 		}
 		s.at = now
 		cur := make(map[string]containers.Container, len(cs))
@@ -83,7 +89,7 @@ func (a *Agent) trackUpdates(now time.Time) {
 		}
 
 		if a.updates[k] == nil && len(s.newcomer) > 0 {
-			if from, leaving := leavingVersion(s.settled, cur); leaving {
+			if from, leaving := leavingVersion(s.settled, cur); leaving || first {
 				a.updates[k] = newUpdate(now, from, s.newcomer, cur)
 			} else {
 				settleReplicas(&s, cur, now)
@@ -96,6 +102,7 @@ func (a *Agent) trackUpdates(now time.Time) {
 			delete(a.seen, k)
 		}
 	}
+	a.watching = true
 
 	for k, u := range a.updates {
 		outcome := updateProgress(byService[k], u, now)
@@ -138,6 +145,7 @@ func (a *Agent) resumeFrom(snap snapshot.Snapshot, now time.Time) {
 	if age := now.Sub(snap.GeneratedAt); age < 0 || age > forgetAfter {
 		return
 	}
+	a.watching = len(snap.Projects) > 0
 	for _, p := range snap.Projects {
 		if p.Project == "" {
 			continue
@@ -166,6 +174,17 @@ func versions(cs []containers.Container) map[string]string {
 		v[c.ID] = c.Version
 	}
 	return v
+}
+
+// justCreated reports whether every container is younger than an update can
+// be. A service that only looks new, because the agent is, has older ones.
+func justCreated(cs []containers.Container, now time.Time) bool {
+	for _, c := range cs {
+		if c.CreatedAt.IsZero() || now.Sub(c.CreatedAt) >= updateLimit {
+			return false
+		}
+	}
+	return true
 }
 
 // leavingVersion reports whether a settled container is gone or no longer

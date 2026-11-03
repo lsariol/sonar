@@ -104,8 +104,9 @@ type Agent struct {
 	refused []string // labels that can't be checked, for attention
 	checks  map[target]*checkStatus
 
-	seen    map[serviceKey]seenService // each service's containers at its last reading
-	updates map[serviceKey]*update     // updates in progress
+	seen     map[serviceKey]seenService // each service's containers at its last reading
+	updates  map[serviceKey]*update     // updates in progress
+	watching bool                       // the baseline is set: a new service is a deploy
 
 	buckets map[time.Time]*bucket // minutes still being added up
 	pending []store.Minute        // finished minutes waiting for the database

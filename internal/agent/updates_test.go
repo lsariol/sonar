@@ -378,3 +378,100 @@ func TestStaleSnapshotIsIgnored(t *testing.T) {
 		t.Errorf("recorded %+v, want nothing", got)
 	}
 }
+
+// otherProject gives the agent a baseline before plop appears.
+func (dp *deploy) otherProject() containers.Container {
+	return sonarContainer('z', "sonar-api", "v0.2.2", "running", "healthy", dp.clk.t.Add(-time.Hour))
+}
+
+// TestFirstDeploy: a project Sonar has never seen comes up step by step.
+func TestFirstDeploy(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	other := dp.otherProject()
+	dp.reading(other)
+	created := dp.clk.t.Add(dockerEvery - 2*time.Second)
+
+	steps := []struct {
+		name string
+		c    containers.Container
+		want state.State
+	}{
+		{"created", dp.container('a', "v1.0.0", "created", "none", 2*time.Second), state.Updating},
+		{"starting", dp.container('a', "v1.0.0", "running", "starting", 2*time.Second), state.Updating},
+		{"healthy", dp.container('a', "v1.0.0", "running", "healthy", 2*time.Second), state.Up},
+	}
+	for _, s := range steps {
+		s.c.CreatedAt = created
+		if got := dp.reading(other, s.c); got != s.want {
+			t.Errorf("%s: %v, want %v", s.name, got, s.want)
+		}
+	}
+	got := dp.recorded()
+	if len(got) != 1 || got[0].From != "" || got[0].To != "v1.0.0" || got[0].Outcome != "ok" || !got[0].Started.Equal(created) {
+		t.Fatalf("recorded = %+v, want one update to v1.0.0, from its creation", got)
+	}
+}
+
+func TestFirstDeployBetweenReadings(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	other := dp.otherProject()
+	dp.reading(other)
+	if s := dp.reading(other, dp.container('a', "v1.0.0", "running", "healthy", 4*time.Second)); s != state.Up {
+		t.Errorf("after the first deploy: %v, want up", s)
+	}
+	if got := dp.finished(); len(got) != 1 || got[0] != "→v1.0.0 ok" {
+		t.Errorf("recorded updates = %v, want one", got)
+	}
+}
+
+func TestFirstDeployFails(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	other := dp.otherProject()
+	dp.reading(other)
+	dp.reading(other, dp.container('a', "v1.0.0", "running", "unhealthy", 4*time.Second))
+	if got := dp.finished(); len(got) != 1 || got[0] != "→v1.0.0 failed" {
+		t.Errorf("recorded updates = %v, want one failed", got)
+	}
+}
+
+// TestFirstDeployWhileAgentAway: the agent restarted, and a project appeared
+// meanwhile.
+func TestFirstDeployWhileAgentAway(t *testing.T) {
+	dp := newDeploy(t, &fakeChecker{})
+	other := dp.otherProject()
+	dp.reading(other)
+	dp.restartAgent(3 * time.Second)
+	dp.reading(other, dp.container('a', "v1.0.0", "running", "healthy", 8*time.Second))
+	if got := dp.finished(); len(got) != 1 || got[0] != "→v1.0.0 ok" {
+		t.Errorf("recorded updates = %v, want one", got)
+	}
+}
+
+// TestNewToTheAgentIsNotAFirstDeploy: services only look new at the agent's
+// first reading, and an older container appearing later isn't a deploy.
+func TestNewToTheAgentIsNotAFirstDeploy(t *testing.T) {
+	t.Run("the first reading", func(t *testing.T) {
+		dp := newDeploy(t, &fakeChecker{})
+		dp.reading(dp.container('a', "v1.0.0", "running", "healthy", 30*time.Second))
+		if got := dp.finished(); len(got) != 0 {
+			t.Errorf("recorded %v, want nothing", got)
+		}
+	})
+	t.Run("a snapshot with no projects", func(t *testing.T) {
+		dp := newDeploy(t, &fakeChecker{})
+		dp.restartAgent(3 * time.Second)
+		dp.reading(dp.container('a', "v1.0.0", "running", "healthy", 30*time.Second))
+		if got := dp.finished(); len(got) != 0 {
+			t.Errorf("recorded %v, want nothing", got)
+		}
+	})
+	t.Run("an older container", func(t *testing.T) {
+		dp := newDeploy(t, &fakeChecker{})
+		other := dp.otherProject()
+		dp.reading(other)
+		dp.reading(other, dp.container('a', "v1.0.0", "running", "healthy", time.Hour))
+		if got := dp.finished(); len(got) != 0 {
+			t.Errorf("recorded %v, want nothing", got)
+		}
+	})
+}

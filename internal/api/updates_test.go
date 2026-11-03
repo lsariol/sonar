@@ -135,6 +135,14 @@ func TestMergeUpdateVersions(t *testing.T) {
 	}
 }
 
+// TestFirstDeployMarker: nothing ran before, so from is null.
+func TestFirstDeployMarker(t *testing.T) {
+	got := mergeUpdates([]store.Update{{Project: "plop", Service: "web", Started: now, Ended: now.Add(20 * time.Second), To: "v1.0.0", Outcome: "ok"}})
+	if len(got) != 1 || got[0].From != nil || deref(got[0].To) != "v1.0.0" {
+		t.Errorf("marker = %+v, want no from, to v1.0.0", got)
+	}
+}
+
 func deref(s *string) string {
 	if s == nil {
 		return ""
