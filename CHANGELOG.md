@@ -2,7 +2,7 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
-## v0.2.3 (unreleased)
+## v0.2.3 (2026-11-02)
 
 ### Fixed
 - A project's first deploy is recorded as an update, so it gets a marker in the history and counts in the day's deploys. It has a version after it but none before.
