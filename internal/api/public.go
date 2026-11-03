@@ -14,7 +14,7 @@ import (
 
 // excluded projects never appear in public answers; every other project
 // with a compose project name does.
-var excluded = []string{"sparkdb", "cloudflared"}
+var excluded = []string{"sparkdb", "cloudflared", "lucassariol-web"}
 
 // IsPublic reports whether a project may appear in status:read answers.
 func IsPublic(project string) bool {

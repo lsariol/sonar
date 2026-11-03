@@ -65,6 +65,16 @@ func TestMergeUpdates(t *testing.T) {
 	}
 }
 
+func TestIsPublic(t *testing.T) {
+	for project, want := range map[string]bool{
+		"plop": true, "lys": true, "": false, "sparkdb": false, "cloudflared": false, "lucassariol-web": false,
+	} {
+		if got := IsPublic(project); got != want {
+			t.Errorf("IsPublic(%q) = %v, want %v", project, got, want)
+		}
+	}
+}
+
 func TestPublicVersion(t *testing.T) {
 	for v, ok := range map[string]bool{
 		"v1.3.0": true, "1.3.0": true, "v1.3.0-rc.1": true, "v10.20.300": true,
