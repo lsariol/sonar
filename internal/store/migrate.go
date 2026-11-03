@@ -62,7 +62,7 @@ func Migrate(ctx context.Context, connString string, log *slog.Logger) error {
 
 	results, err := provider.Up(ctx)
 	for _, r := range results {
-		log.Info("migration applied", "migration", r.Source.Path, "took", r.Duration.String())
+		log.Info("migration applied", "migration", r.Source.Path, "duration_ms", r.Duration.Milliseconds())
 	}
 	if err != nil {
 		return fmt.Errorf("database: applying migrations: %w", err)

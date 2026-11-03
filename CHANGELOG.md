@@ -6,6 +6,7 @@ All notable changes to Sonar. Versions follow [semantic versioning](https://semv
 
 ### Changed
 - lucassariol-web is left off the public status, like the database and the Cloudflare tunnel. Sonar still monitors it.
+- Logs follow Spark's logging standard: one JSON line per record, with errors under `err`, so Blackbox can search and filter them. A part of Sonar that can't start says why in its log before it exits.
 
 ## v0.2.3 (2026-11-02)
 

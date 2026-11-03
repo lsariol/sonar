@@ -15,6 +15,8 @@ import (
 	"time"
 	_ "time/tzdata" // TZ works on an image without zoneinfo
 
+	"github.com/lsariol/blackboxlog"
+
 	"github.com/lsariol/sonar/internal/agent"
 	"github.com/lsariol/sonar/internal/api"
 	"github.com/lsariol/sonar/internal/checks"
@@ -72,31 +74,31 @@ Run "sonar help" to list the CLI commands.
 
 // runProxy runs sonar-proxy until SIGINT or SIGTERM (docker stop).
 func runProxy() {
-	cfg := loadConfig()
-	log := newLogger("proxy")
-	log.Info("Sonar starting", "version", cfg.Version, "env", cfg.Env)
+	log := newLogger()
+	serviceConfig(log)
+	log.Info("Sonar starting")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := proxy.New(proxy.DockerSocket, log).Serve(ctx, containers.Socket); err != nil {
-		fatal(err)
+		fail(log, err)
 	}
 	log.Info("Sonar stopped")
 }
 
 // runAgent runs sonar-agent until SIGINT or SIGTERM (docker stop).
 func runAgent() {
-	cfg := loadConfig()
-	log := newLogger("agent")
-	log.Info("Sonar starting", "version", cfg.Version, "env", cfg.Env)
+	log := newLogger()
+	cfg := serviceConfig(log)
+	log.Info("Sonar starting")
 
 	migratorURL, err := config.Secret(os.Getenv, "SONAR_DATABASE_MIGRATOR_URL")
 	if err != nil {
-		fatal(err)
+		fail(log, err)
 	}
 	appURL, err := config.Secret(os.Getenv, "SONAR_DATABASE_URL")
 	if err != nil {
-		fatal(err)
+		fail(log, err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -126,20 +128,20 @@ func runAgent() {
 		},
 	})
 	if err := a.Run(ctx); err != nil {
-		fatal(err)
+		fail(log, err)
 	}
 	log.Info("Sonar stopped")
 }
 
 // runAPI runs sonar-api until SIGINT or SIGTERM (docker stop).
 func runAPI() {
-	cfg := loadConfig()
-	log := newLogger("api")
-	log.Info("Sonar starting", "version", cfg.Version, "env", cfg.Env)
+	log := newLogger()
+	cfg := serviceConfig(log)
+	log.Info("Sonar starting")
 
 	readerURL, err := config.Secret(os.Getenv, "SONAR_DATABASE_READER_URL")
 	if err != nil {
-		fatal(err)
+		fail(log, err)
 	}
 	s, err := api.New(api.Options{
 		Version:   cfg.Version,
@@ -155,13 +157,13 @@ func runAPI() {
 		},
 	})
 	if err != nil {
-		fatal(err)
+		fail(log, err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := s.Serve(ctx, fmt.Sprintf(":%d", api.Port)); err != nil {
-		fatal(err)
+		fail(log, err)
 	}
 	log.Info("Sonar stopped")
 }
@@ -221,17 +223,28 @@ func runHealth(args []string) int {
 	return 0
 }
 
-// newLogger logs text lines to stderr with UTC timestamps, tagged with part.
-func newLogger(part string) *slog.Logger {
-	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			if a.Key == slog.TimeKey && len(groups) == 0 {
-				a.Value = slog.TimeValue(a.Value.Time().UTC())
-			}
-			return a
-		},
-	})
-	return slog.New(h).With("part", part)
+// newLogger is the logger every part of Sonar uses: Spark's standard, so
+// Blackbox reads it, and the default for libraries too.
+func newLogger() *slog.Logger {
+	log := blackboxlog.New(blackboxlog.Options{})
+	slog.SetDefault(log)
+	return log
+}
+
+// serviceConfig is the configuration for a part of Sonar; without one, it
+// logs why and exits.
+func serviceConfig(log *slog.Logger) config.Config {
+	cfg, err := config.Load(os.Getenv)
+	if err != nil {
+		fail(log, err)
+	}
+	return cfg
+}
+
+// fail logs why a part of Sonar can't go on, and exits.
+func fail(log *slog.Logger, err error) {
+	log.Error("Sonar stopped on an error", "err", err)
+	os.Exit(1)
 }
 
 // runShell runs the interactive CLI until exit, end of input, or SIGTERM.

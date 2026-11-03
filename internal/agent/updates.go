@@ -129,7 +129,7 @@ func (a *Agent) trackUpdates(now time.Time) {
 func (a *Agent) resume() {
 	snap, err := snapshot.Read(a.opts.StateDir)
 	if err != nil {
-		a.opts.Log.Info("starting without the previous agent's view", "reason", err)
+		a.opts.Log.Info("starting without the previous agent's view", "err", err)
 		return
 	}
 	a.mu.Lock()
