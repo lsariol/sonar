@@ -2,7 +2,7 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
-## v0.2.4 (unreleased)
+## v0.2.4 (2026-11-03)
 
 ### Changed
 - lucassariol-web is left off the public status, like the database and the Cloudflare tunnel. Sonar still monitors it.
