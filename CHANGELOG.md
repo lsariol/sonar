@@ -2,7 +2,7 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
-## v0.2.5 (unreleased)
+## v0.2.5 (2026-11-11)
 
 ### Added
 - Each day in the status gives its minute counts: `observed_minutes`, `degraded_minutes` and `down_minutes`, so a page can show exactly how long a project was degraded or down. They are 0 on a day with nothing observed, never `null`.
