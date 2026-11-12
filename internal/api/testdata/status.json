@@ -32,8 +32,7 @@
           "updates": 0,
           "observed_minutes": 0,
           "degraded_minutes": 0,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         },
         {
           "date": "2026-10-18",
@@ -43,8 +42,7 @@
           "updates": 0,
           "observed_minutes": 0,
           "degraded_minutes": 0,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         },
         {
           "date": "2026-10-19",
@@ -54,8 +52,7 @@
           "updates": 0,
           "observed_minutes": 0,
           "degraded_minutes": 0,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         },
         {
           "date": "2026-10-20",
@@ -65,8 +62,7 @@
           "updates": 0,
           "observed_minutes": 1440,
           "degraded_minutes": 10,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         },
         {
           "date": "2026-10-21",
@@ -76,8 +72,7 @@
           "updates": 0,
           "observed_minutes": 0,
           "degraded_minutes": 0,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         }
       ]
     },
@@ -104,8 +99,7 @@
           "updates": 0,
           "observed_minutes": 0,
           "degraded_minutes": 0,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         },
         {
           "date": "2026-10-18",
@@ -115,8 +109,7 @@
           "updates": 0,
           "observed_minutes": 600,
           "degraded_minutes": 0,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         },
         {
           "date": "2026-10-19",
@@ -126,8 +119,7 @@
           "updates": 1,
           "observed_minutes": 1440,
           "degraded_minutes": 0,
-          "down_minutes": 40,
-          "updating_minutes": 0
+          "down_minutes": 40
         },
         {
           "date": "2026-10-20",
@@ -137,8 +129,7 @@
           "updates": 0,
           "observed_minutes": 1440,
           "degraded_minutes": 0,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         },
         {
           "date": "2026-10-21",
@@ -148,8 +139,7 @@
           "updates": 1,
           "observed_minutes": 904,
           "degraded_minutes": 4,
-          "down_minutes": 0,
-          "updating_minutes": 0
+          "down_minutes": 0
         }
       ]
     }

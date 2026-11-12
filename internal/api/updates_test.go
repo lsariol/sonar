@@ -72,8 +72,8 @@ func TestDayMinutes(t *testing.T) {
 	rows := []store.DayCounts{{Project: "plop", Day: midnight(now).AddDate(0, 0, -1), Up: 1400, Updating: 10, Degraded: 18, Down: 12}}
 	strip, _, _ := ProjectDays(now, 3, rows, nil)
 	day := strip[1]
-	if day.ObservedMinutes != 1440 || day.DegradedMinutes != 18 || day.DownMinutes != 12 || day.UpdatingMinutes != 10 {
-		t.Errorf("minutes = %+v, want 1440 observed, 18 degraded, 12 down, 10 updating", day)
+	if day.ObservedMinutes != 1440 || day.DegradedMinutes != 18 || day.DownMinutes != 12 {
+		t.Errorf("minutes = %+v, want 1440 observed (updating included), 18 degraded, 12 down", day)
 	}
 	if day.State != "down" || day.UptimePct == nil || *day.UptimePct != round(float64(1440-12)/1440*100, 2) {
 		t.Errorf("state %q, uptime %v; want down, (observed - down) / observed", day.State, day.UptimePct)
