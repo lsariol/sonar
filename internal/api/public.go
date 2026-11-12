@@ -61,6 +61,11 @@ type DayState struct {
 	UptimePct   *float64 `json:"uptime_pct"`
 	CoveragePct float64  `json:"coverage_pct"`
 	Updates     int      `json:"updates"` // deploys that day
+
+	ObservedMinutes int `json:"observed_minutes"` // minutes with a known state
+	DegradedMinutes int `json:"degraded_minutes"`
+	DownMinutes     int `json:"down_minutes"`
+	UpdatingMinutes int `json:"updating_minutes"` // deploys; they count as up
 }
 
 type historyAnswer struct {
@@ -259,7 +264,8 @@ func ProjectDays(now time.Time, days int, rows []store.DayCounts, updates []stor
 		r := byDay[date]
 		observed := r.Up + r.Updating + r.Degraded + r.Down
 		ds := DayState{Date: date.Format(time.DateOnly), State: "no_data", CoveragePct: round(pct(observed, minutes), 1),
-			Updates: updatesOn[date]}
+			Updates: updatesOn[date], ObservedMinutes: observed, DegradedMinutes: r.Degraded, DownMinutes: r.Down,
+			UpdatingMinutes: r.Updating}
 		if s, ok := state.Day(r.Up, r.Updating, r.Degraded, r.Down, minutes); ok {
 			ds.State = publicState(s)
 			if p, ok := state.Uptime(r.Up, r.Updating, r.Degraded, r.Down); ok {

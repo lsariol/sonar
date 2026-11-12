@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -62,6 +63,28 @@ func TestMergeUpdates(t *testing.T) {
 	})
 	if len(back) != 2 || back[0].Outcome != "failed" || back[1].Outcome != "ok" {
 		t.Errorf("a deploy and its rollback = %+v, want two markers", back)
+	}
+}
+
+// TestDayMinutes: a day's counts add up, agree with its uptime, and are 0
+// (never null) on a day with nothing observed.
+func TestDayMinutes(t *testing.T) {
+	rows := []store.DayCounts{{Project: "plop", Day: midnight(now).AddDate(0, 0, -1), Up: 1400, Updating: 10, Degraded: 18, Down: 12}}
+	strip, _, _ := ProjectDays(now, 3, rows, nil)
+	day := strip[1]
+	if day.ObservedMinutes != 1440 || day.DegradedMinutes != 18 || day.DownMinutes != 12 || day.UpdatingMinutes != 10 {
+		t.Errorf("minutes = %+v, want 1440 observed, 18 degraded, 12 down, 10 updating", day)
+	}
+	if day.State != "down" || day.UptimePct == nil || *day.UptimePct != round(float64(1440-12)/1440*100, 2) {
+		t.Errorf("state %q, uptime %v; want down, (observed - down) / observed", day.State, day.UptimePct)
+	}
+	empty := strip[0]
+	if empty.State != "no_data" || empty.ObservedMinutes != 0 || empty.DownMinutes != 0 {
+		t.Errorf("a day with nothing observed = %+v, want no_data and zeros", empty)
+	}
+	body, _ := json.Marshal(empty)
+	if !bytes.Contains(body, []byte(`"observed_minutes":0`)) || !bytes.Contains(body, []byte(`"down_minutes":0`)) {
+		t.Errorf("zeros should be written out: %s", body)
 	}
 }
 

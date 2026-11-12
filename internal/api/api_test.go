@@ -276,6 +276,7 @@ func TestNothingPrivate(t *testing.T) {
 	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now)})
 	allowed := []string{"generated_at", "fresh", "overall", "state", "uptime_30d", "uptime_90d", "pct", "coverage_pct",
 		"projects", "project", "version", "evidence", "response_ms", "days", "date", "uptime_pct",
+		"observed_minutes", "degraded_minutes", "down_minutes", "updating_minutes",
 		"range", "from", "to", "bucket_seconds", "points", "t", "cpu_pct", "mem_used_pct", "avg", "min", "max",
 		"updates", "started", "ended", "seconds", "outcome"}
 
