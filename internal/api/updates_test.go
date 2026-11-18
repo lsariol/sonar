@@ -43,7 +43,7 @@ func TestMergeUpdates(t *testing.T) {
 		u("plop", "web", 10*time.Minute, 20*time.Second, "ok"),        // a later deploy
 		u("lys", "lys", 5*time.Second, 15*time.Second, "ok"),
 		u("cloudflared", "cloudflared", 0, 5*time.Second, "ok"), // excluded
-	})
+	}, IsPublic)
 	if len(got) != 3 {
 		t.Fatalf("merged = %+v, want 3", got)
 	}
@@ -60,7 +60,7 @@ func TestMergeUpdates(t *testing.T) {
 	back := mergeUpdates([]store.Update{
 		u("plop", "web", 0, 40*time.Second, "failed"),
 		u("plop", "web", 50*time.Second, 20*time.Second, "ok"),
-	})
+	}, IsPublic)
 	if len(back) != 2 || back[0].Outcome != "failed" || back[1].Outcome != "ok" {
 		t.Errorf("a deploy and its rollback = %+v, want two markers", back)
 	}
@@ -156,7 +156,7 @@ func TestMergeUpdateVersions(t *testing.T) {
 		u("web", 10*time.Minute, "v1.3.0", "v1.4.0"),
 		u("worker", 10*time.Minute, "v1.2.9", "v1.4.0"), // same deploy, came from another version
 		u("web", 20*time.Minute, "a1b2c3d", "v1.4.1"),   // from a commit deploy
-	})
+	}, IsPublic)
 	want := [][2]string{{"v1.2.0", "v1.3.0"}, {"", "v1.4.0"}, {"", "v1.4.1"}}
 	if len(got) != len(want) {
 		t.Fatalf("merged = %+v, want %d markers", got, len(want))
@@ -170,7 +170,7 @@ func TestMergeUpdateVersions(t *testing.T) {
 
 // TestFirstDeployMarker: nothing ran before, so from is null.
 func TestFirstDeployMarker(t *testing.T) {
-	got := mergeUpdates([]store.Update{{Project: "plop", Service: "web", Started: now, Ended: now.Add(20 * time.Second), To: "v1.0.0", Outcome: "ok"}})
+	got := mergeUpdates([]store.Update{{Project: "plop", Service: "web", Started: now, Ended: now.Add(20 * time.Second), To: "v1.0.0", Outcome: "ok"}}, IsPublic)
 	if len(got) != 1 || got[0].From != nil || deref(got[0].To) != "v1.0.0" {
 		t.Errorf("marker = %+v, want no from, to v1.0.0", got)
 	}

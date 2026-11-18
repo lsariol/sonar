@@ -12,7 +12,7 @@ type scope string
 
 const (
 	statusRead  scope = "status:read"  // the public projection, for the status page
-	monitorRead scope = "monitor:read" // owner detail (the dashboard, later)
+	monitorRead scope = "monitor:read" // owner detail, for Vista
 )
 
 // consumer is a caller allowed to use the API. Its token is the Cove key Key,
@@ -27,6 +27,7 @@ type consumer struct {
 // its key in Cove, and its pass-through line in docker-compose.yml.
 var consumers = []consumer{
 	{Name: "mobasity-web", Key: "SHARED_SONAR_MOBASITY_WEB_TOKEN", Scopes: []scope{statusRead}},
+	{Name: "vista", Key: "SHARED_SONAR_VISTA_TOKEN", Scopes: []scope{statusRead, monitorRead}},
 }
 
 // minTokenLength is the shortest token the API accepts from Cove.

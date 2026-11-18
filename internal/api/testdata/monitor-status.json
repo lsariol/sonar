@@ -1,0 +1,214 @@
+{
+  "generated_at": "2026-10-21T15:04:01Z",
+  "fresh": true,
+  "overall": {
+    "state": "down",
+    "uptime_30d": {
+      "pct": null,
+      "coverage_pct": 5.7
+    }
+  },
+  "projects": [
+    {
+      "project": "lys",
+      "state": "down",
+      "version": null,
+      "evidence": "container",
+      "response_ms": null,
+      "uptime_30d": {
+        "pct": null,
+        "coverage_pct": 3.4
+      },
+      "uptime_90d": {
+        "pct": null,
+        "coverage_pct": 1.1
+      },
+      "days": [
+        {
+          "date": "2026-10-17",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-18",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-19",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-20",
+          "state": "degraded",
+          "uptime_pct": 100,
+          "coverage_pct": 100,
+          "updates": 0,
+          "observed_minutes": 1440,
+          "degraded_minutes": 10,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-21",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        }
+      ]
+    },
+    {
+      "project": "plop",
+      "state": "operational",
+      "version": "v1.4.0",
+      "evidence": "checked",
+      "response_ms": 51,
+      "uptime_30d": {
+        "pct": null,
+        "coverage_pct": 10.3
+      },
+      "uptime_90d": {
+        "pct": null,
+        "coverage_pct": 3.4
+      },
+      "days": [
+        {
+          "date": "2026-10-17",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-18",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 41.7,
+          "updates": 0,
+          "observed_minutes": 600,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-19",
+          "state": "down",
+          "uptime_pct": 97.22,
+          "coverage_pct": 100,
+          "updates": 1,
+          "observed_minutes": 1440,
+          "degraded_minutes": 0,
+          "down_minutes": 40
+        },
+        {
+          "date": "2026-10-20",
+          "state": "operational",
+          "uptime_pct": 100,
+          "coverage_pct": 100,
+          "updates": 0,
+          "observed_minutes": 1440,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-21",
+          "state": "operational",
+          "uptime_pct": 100,
+          "coverage_pct": 100,
+          "updates": 1,
+          "observed_minutes": 904,
+          "degraded_minutes": 4,
+          "down_minutes": 0
+        }
+      ]
+    },
+    {
+      "project": "sparkdb",
+      "state": "operational",
+      "version": null,
+      "evidence": "container",
+      "response_ms": 2,
+      "uptime_30d": {
+        "pct": null,
+        "coverage_pct": 3.4
+      },
+      "uptime_90d": {
+        "pct": null,
+        "coverage_pct": 1.1
+      },
+      "days": [
+        {
+          "date": "2026-10-17",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-18",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-19",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 0,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-20",
+          "state": "operational",
+          "uptime_pct": 100,
+          "coverage_pct": 100,
+          "updates": 0,
+          "observed_minutes": 1440,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        },
+        {
+          "date": "2026-10-21",
+          "state": "no_data",
+          "uptime_pct": null,
+          "coverage_pct": 0,
+          "updates": 1,
+          "observed_minutes": 0,
+          "degraded_minutes": 0,
+          "down_minutes": 0
+        }
+      ]
+    }
+  ]
+}

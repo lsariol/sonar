@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +32,9 @@ const (
 	maxDays         = 380
 	connectRetry    = 5 * time.Second
 )
+
+// paths are the endpoints the API serves, for its 404 and 405 answers.
+var paths = []string{"/healthz", "/v1/status", "/v1/status/history", "/v1/monitor/status"}
 
 // Reader is the database, as the API reads it (sonar_reader).
 type Reader interface {
@@ -68,9 +72,10 @@ type Server struct {
 	db    Reader
 	dbErr error
 
-	status  *cache[int]
-	history *cache[string]
-	refused refusals
+	status        *cache[int]
+	monitorStatus *cache[int]
+	history       *cache[string]
+	refused       refusals
 }
 
 // New returns a server, or an error when a consumer's token is missing.
@@ -83,7 +88,8 @@ func New(opts Options) (*Server, error) {
 		return nil, err
 	}
 	return &Server{opts: opts, creds: creds, dbErr: errors.New("not connected yet"),
-		status: newCache[int](statusCacheFor), history: newCache[string](historyCacheFor)}, nil
+		status: newCache[int](statusCacheFor), monitorStatus: newCache[int](statusCacheFor),
+		history: newCache[string](historyCacheFor)}, nil
 }
 
 // Handler routes the API.
@@ -92,14 +98,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /v1/status", s.require(statusRead, s.statusHandler))
 	mux.HandleFunc("GET /v1/status/history", s.require(statusRead, s.historyHandler))
+	mux.HandleFunc("GET /v1/monitor/status", s.require(monitorRead, s.monitorStatusHandler))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/healthz", "/v1/status", "/v1/status/history":
+		if slices.Contains(paths, r.URL.Path) {
 			w.Header().Set("Allow", "GET, HEAD")
 			writeError(w, http.StatusMethodNotAllowed, "only GET is supported")
-		default:
-			writeError(w, http.StatusNotFound, "no such endpoint: the API serves /healthz, /v1/status and /v1/status/history")
+			return
 		}
+		writeError(w, http.StatusNotFound, "no such endpoint: the API serves "+strings.Join(paths, ", "))
 	})
 	return http.TimeoutHandler(securityHeaders(mux), requestTimeout, `{"error":"the request took too long"}`)
 }
@@ -243,20 +249,40 @@ func bearer(header string) (string, bool) {
 }
 
 func (s *Server) statusHandler(w http.ResponseWriter, r *http.Request) {
-	days := 90
-	if v := r.URL.Query().Get("days"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 || n > maxDays {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("days must be a number from 1 to %d", maxDays))
-			return
-		}
-		days = n
+	s.serveStatus(w, r, s.status, IsPublic)
+}
+
+// monitorStatusHandler is /v1/status for the owner: every project, the
+// excluded ones too.
+func (s *Server) monitorStatusHandler(w http.ResponseWriter, r *http.Request) {
+	s.serveStatus(w, r, s.monitorStatus, anyProject)
+}
+
+func (s *Server) serveStatus(w http.ResponseWriter, r *http.Request, c *cache[int], include func(string) bool) {
+	days, ok := daysParam(w, r)
+	if !ok {
+		return
 	}
 	s.answer(w, r, func(db Reader, now time.Time) ([]byte, error) {
-		return s.status.get(days, now, func(ctx context.Context) (any, error) {
-			return s.buildStatus(ctx, db, now, days)
+		return c.get(days, now, func(ctx context.Context) (any, error) {
+			return s.buildStatus(ctx, db, now, days, include)
 		})
 	})
+}
+
+// daysParam is the days query parameter, 90 when it's missing; on a bad value
+// it answers 400 and reports false.
+func daysParam(w http.ResponseWriter, r *http.Request) (int, bool) {
+	v := r.URL.Query().Get("days")
+	if v == "" {
+		return 90, true
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 || n > maxDays {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("days must be a number from 1 to %d", maxDays))
+		return 0, false
+	}
+	return n, true
 }
 
 func (s *Server) historyHandler(w http.ResponseWriter, r *http.Request) {
@@ -285,7 +311,7 @@ func (s *Server) historyHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) buildStatus(ctx context.Context, db Reader, now time.Time, days int) (statusAnswer, error) {
+func (s *Server) buildStatus(ctx context.Context, db Reader, now time.Time, days int, include func(string) bool) (statusAnswer, error) {
 	var snap *snapshot.Snapshot
 	if sn, err := s.opts.Snapshots.Load(); err == nil {
 		snap = &sn
@@ -305,7 +331,7 @@ func (s *Server) buildStatus(ctx context.Context, db Reader, now time.Time, days
 	if err != nil {
 		return statusAnswer{}, err
 	}
-	return buildStatus(now, snap, days, rows, updates, response), nil
+	return buildStatus(now, snap, days, rows, updates, response, include), nil
 }
 
 // answer serves what get builds, or 503 while the database can't answer.

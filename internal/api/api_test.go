@@ -99,7 +99,7 @@ func testSnapshot(at time.Time) snapshot.Snapshot {
 						Version: "v1.4.0", State: "running", Health: "healthy", StartedAt: &started}}},
 				{Service: "secret-sidecar", State: state.Up, Counted: true}}},
 			{Project: "sparkdb", State: state.Up, Evidence: state.ContainerOnly, Services: []snapshot.Service{
-				{Service: "db", Containers: []snapshot.Container{{Image: "postgres:16.4"}}}}},
+				{Service: "db", State: state.Up, Counted: true, Containers: []snapshot.Container{{Image: "postgres:16.4"}}}}},
 		},
 		Checks: []snapshot.Check{{Project: "plop", Service: "plop", URL: "https://plop.mobasity.com", State: state.Up}},
 	}
@@ -128,7 +128,7 @@ func newTestServer(t *testing.T, r *fakeReader, snaps *fakeSnapshots) *Server {
 	t.Helper()
 	s, err := New(Options{
 		Version:   "v0.1.0",
-		Getenv:    func(k string) string { return map[string]string{"SHARED_SONAR_MOBASITY_WEB_TOKEN": token}[k] },
+		Getenv:    testEnv,
 		Snapshots: snaps,
 		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now:       func() time.Time { return now },
@@ -141,6 +141,13 @@ func newTestServer(t *testing.T, r *fakeReader, snaps *fakeSnapshots) *Server {
 	}
 	s.connect(context.Background())
 	return s
+}
+
+// vistaToken is the vista consumer's token in tests.
+var vistaToken = strings.Repeat("v", 40)
+
+func testEnv(k string) string {
+	return map[string]string{"SHARED_SONAR_MOBASITY_WEB_TOKEN": token, "SHARED_SONAR_VISTA_TOKEN": vistaToken}[k]
 }
 
 func do(t *testing.T, s *Server, method, path, auth string) (int, http.Header, []byte) {
@@ -183,7 +190,7 @@ func TestCredentials(t *testing.T) {
 	if _, err := loadCredentials(get("short"), consumers); err == nil || !strings.Contains(err.Error(), "at least 32") {
 		t.Errorf("short token: err = %v", err)
 	}
-	creds, err := loadCredentials(get(token), consumers)
+	creds, err := loadCredentials(get(token), consumers[:1])
 	if err != nil || len(creds) != 1 {
 		t.Fatalf("creds = %v, %v", creds, err)
 	}
@@ -444,5 +451,40 @@ func TestServe(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Errorf("Serve = %v", err)
+	}
+}
+
+// TestMonitorStatus: the owner's status has every project, the excluded ones
+// too, in the same shape; the public token can't read it.
+func TestMonitorStatus(t *testing.T) {
+	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51, "sparkdb": 2}, updates: testUpdates()}
+	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now.Add(-4 * time.Second))})
+
+	if status, _, _ := do(t, s, "GET", "/v1/monitor/status", "Bearer "+token); status != http.StatusForbidden {
+		t.Errorf("mobasity-web's token on /v1/monitor/status: %d, want 403", status)
+	}
+	status, _, body := do(t, s, "GET", "/v1/monitor/status?days=5", "Bearer "+vistaToken)
+	if status != http.StatusOK {
+		t.Fatalf("%d: %s", status, body)
+	}
+	golden(t, "monitor-status.json", body)
+	var answer statusAnswer
+	if err := json.Unmarshal(body, &answer); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, p := range answer.Projects {
+		names = append(names, p.Project)
+	}
+	if !slices.Contains(names, "sparkdb") || !slices.Contains(names, "plop") {
+		t.Errorf("projects = %v, want sparkdb and plop", names)
+	}
+
+	_, _, public := do(t, s, "GET", "/v1/status?days=5", "Bearer "+vistaToken)
+	if bytes.Contains(public, []byte("sparkdb")) {
+		t.Error("/v1/status shows sparkdb to vista; it's the public answer whoever asks")
+	}
+	if status, _, _ := do(t, s, "GET", "/v1/monitor/status?days=0", "Bearer "+vistaToken); status != http.StatusBadRequest {
+		t.Errorf("days=0: %d, want 400", status)
 	}
 }

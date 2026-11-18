@@ -21,6 +21,12 @@ func IsPublic(project string) bool {
 	return project != "" && !slices.Contains(excluded, project)
 }
 
+// anyProject is the monitor:read view: every project with a compose project
+// name.
+func anyProject(project string) bool {
+	return project != ""
+}
+
 // The public answers. Each is filled field by field from Sonar's data; nothing
 // is copied across whole, so a field added inside Sonar never leaks out.
 
@@ -164,8 +170,8 @@ func sameVersion(a, b *string) bool {
 // services of one project replaced in the same deploy (overlapping, or within
 // 30 s) become one, which didn't come up if any of them didn't, and keeps a
 // version only if they all agree. Two updates of one service are always two
-// (a failed deploy, then its rollback). Only public projects are kept.
-func mergeUpdates(updates []store.Update) []publicUpdate {
+// (a failed deploy, then its rollback). Only projects include accepts are kept.
+func mergeUpdates(updates []store.Update, include func(string) bool) []publicUpdate {
 	sorted := slices.Clone(updates)
 	slices.SortFunc(sorted, func(a, b store.Update) int {
 		return cmp.Or(cmp.Compare(a.Project, b.Project), a.Started.Compare(b.Started))
@@ -173,7 +179,7 @@ func mergeUpdates(updates []store.Update) []publicUpdate {
 	out := []publicUpdate{}
 	var services map[string]bool // in the last marker
 	for _, u := range sorted {
-		if !IsPublic(u.Project) {
+		if !include(u.Project) {
 			continue
 		}
 		if n := len(out); n > 0 && out[n-1].Project == u.Project && !services[u.Service] &&
@@ -246,7 +252,7 @@ func ProjectDays(now time.Time, days int, rows []store.DayCounts, updates []stor
 		byDay[midnight(r.Day)] = r
 	}
 	updatesOn := make(map[time.Time]int)
-	for _, u := range mergeUpdates(updates) {
+	for _, u := range mergeUpdates(updates, anyProject) {
 		updatesOn[midnight(u.Started)]++
 	}
 	today := midnight(now)
@@ -286,8 +292,10 @@ func ProjectDays(now time.Time, days int, rows []store.DayCounts, updates []stor
 	return strip, sum(windowOf(now, 30)), sum(windowOf(now, 90))
 }
 
-// buildStatus turns the snapshot and the daily rows into the public status.
-func buildStatus(now time.Time, snap *snapshot.Snapshot, days int, rows []store.DayCounts, updates []store.Update, response map[string]int) statusAnswer {
+// buildStatus turns the snapshot and the daily rows into the status of the
+// projects include accepts: IsPublic for status:read, anyProject for
+// monitor:read.
+func buildStatus(now time.Time, snap *snapshot.Snapshot, days int, rows []store.DayCounts, updates []store.Update, response map[string]int, include func(string) bool) statusAnswer {
 	answer := statusAnswer{Overall: overallStatus{State: "unknown"}, Projects: []projectStatus{}}
 	fresh := snap != nil && snap.Fresh(now)
 	answer.Fresh = fresh
@@ -309,7 +317,7 @@ func buildStatus(now time.Time, snap *snapshot.Snapshot, days int, rows []store.
 	var up, updating, degraded, down, count int
 	if snap != nil {
 		for _, p := range snap.Projects {
-			if !IsPublic(p.Project) || !slices.ContainsFunc(p.Services, func(s snapshot.Service) bool { return s.Counted }) {
+			if !include(p.Project) || !slices.ContainsFunc(p.Services, func(s snapshot.Service) bool { return s.Counted }) {
 				continue // excluded, or only one-off jobs: nothing to be up or down
 			}
 			st := p.State
@@ -367,7 +375,7 @@ func buildHistory(now time.Time, name string, r historyRange, buckets []store.Ho
 	from, to := historySpan(now, r)
 	answer := historyAnswer{Range: name, From: from, To: to, BucketSeconds: int(r.bucket / time.Second),
 		GeneratedAt: now.UTC(), Points: make([]hostPoint, 0, int(r.length/r.bucket)), Updates: []publicUpdate{}}
-	for _, u := range mergeUpdates(updates) {
+	for _, u := range mergeUpdates(updates, IsPublic) {
 		if !u.Started.Before(from) && u.Started.Before(to) {
 			answer.Updates = append(answer.Updates, u)
 		}
