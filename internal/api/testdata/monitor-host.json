@@ -28,7 +28,19 @@
       "used_pct": 88.89,
       "inodes": 1000,
       "inodes_free": 900
-    }
+    },
+    "network": [
+      {
+        "interface": "enp3s0",
+        "rx_bytes_per_s": 1234.6,
+        "tx_bytes_per_s": 99.9
+      },
+      {
+        "interface": "docker0",
+        "rx_bytes_per_s": null,
+        "tx_bytes_per_s": null
+      }
+    ]
   },
   "points": [
     {
@@ -761,6 +773,36 @@
       "load1": null,
       "disk_used_bytes": null,
       "disk_total_bytes": null
+    }
+  ],
+  "network": [
+    {
+      "interface": "docker0",
+      "points": [
+        {
+          "t": "2026-10-21T14:06:00Z",
+          "minutes": 1,
+          "rx_bytes": 10,
+          "tx_bytes": 20
+        }
+      ]
+    },
+    {
+      "interface": "enp3s0",
+      "points": [
+        {
+          "t": "2026-10-21T14:06:00Z",
+          "minutes": 1,
+          "rx_bytes": 6000,
+          "tx_bytes": 9000
+        },
+        {
+          "t": "2026-10-21T14:07:00Z",
+          "minutes": 1,
+          "rx_bytes": 7000,
+          "tx_bytes": 8000
+        }
+      ]
     }
   ],
   "updates": [

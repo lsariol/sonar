@@ -55,6 +55,8 @@ func monitorSnapshot(at time.Time) snapshot.Snapshot {
 	snap.Host.CorePercents = []float64{10.123, 20.456}
 	snap.Host.UptimeSeconds = 86400
 	snap.Host.ReadAt = at
+	snap.Host.Network = []snapshot.NetIf{{Name: "enp3s0", RxRate: f(1234.56), TxRate: f(99.94), RxBytes: 1e9, TxBytes: 2e9},
+		{Name: "docker0"}}
 	snap.Host.Disk = &snapshot.Disk{Total: 450e9, Used: 400e9, Available: 50e9, UsedPercent: 88.89, Inodes: 1000, InodesFree: 900}
 	snap.Collectors = map[string]snapshot.Collector{
 		"docker":   {State: snapshot.Available, LastOK: &at},
@@ -155,6 +157,10 @@ func TestMonitorHostGolden(t *testing.T) {
 			MemPctAvg: f(25), MemPctMin: f(24), MemMax: f(26)},
 			MemUsedAvg: &mem, MemTotal: &total, SwapUsedAvg: &swap, Load1Avg: f(0.5), Load1Max: f(1.25),
 			DiskUsed: &disk, DiskTotal: &diskTotal},
+	}, network: []store.NetBucket{
+		{Interface: "docker0", Start: start, Minutes: 1, RxBytes: 10, TxBytes: 20},
+		{Interface: "enp3s0", Start: start, Minutes: 1, RxBytes: 6000, TxBytes: 9000},
+		{Interface: "enp3s0", Start: start.Add(time.Minute), Minutes: 1, RxBytes: 7000, TxBytes: 8000},
 	}}
 	s := newTestServer(t, r, &fakeSnapshots{snap: monitorSnapshot(now)})
 	status, _, body := do(t, s, "GET", "/v1/monitor/host?range=1h", "Bearer "+vistaToken)

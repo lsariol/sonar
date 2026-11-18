@@ -25,7 +25,8 @@ type bucket struct {
 	checks     map[serviceKey]*checkSum
 	projects   map[string]*projectSum
 	containers map[string]store.ContainerSeen
-	updates    []store.Update // updates that ended during the minute
+	network    map[string]*counters // bytes each host interface moved
+	updates    []store.Update       // updates that ended during the minute
 }
 
 type serviceKey struct{ project, service string }
@@ -82,6 +83,7 @@ func (a *Agent) bucketAt(t time.Time) *bucket {
 			checks:     make(map[serviceKey]*checkSum),
 			projects:   make(map[string]*projectSum),
 			containers: make(map[string]store.ContainerSeen),
+			network:    make(map[string]*counters),
 		}
 		a.buckets[start] = b
 	}
@@ -160,6 +162,21 @@ func (a *Agent) addDockerMinute(now time.Time, grown map[string]counters) {
 			s.memMax = max(s.memMax, *u.MemoryBytes)
 			s.memN++
 		}
+	}
+}
+
+// addNetworkMinute files how much each host interface moved since the last
+// reading. Callers hold a.mu.
+func (a *Agent) addNetworkMinute(now time.Time, grown map[string]counters) {
+	b := a.bucketAt(now)
+	for name, g := range grown {
+		n := b.network[name]
+		if n == nil {
+			n = &counters{}
+			b.network[name] = n
+		}
+		n.netRx += g.netRx
+		n.netTx += g.netTx
 	}
 }
 
@@ -282,6 +299,10 @@ func (b *bucket) minute() store.Minute {
 		m.Containers = append(m.Containers, c)
 	}
 	m.Updates = b.updates
+	for name, n := range b.network {
+		m.Network = append(m.Network, store.NetMinute{Interface: name, RxBytes: n.netRx, TxBytes: n.netTx})
+	}
+	slices.SortFunc(m.Network, func(x, y store.NetMinute) int { return cmp.Compare(x.Interface, y.Interface) })
 
 	slices.SortFunc(m.Services, func(x, y store.ServiceMinute) int {
 		return cmp.Or(cmp.Compare(x.Project, y.Project), cmp.Compare(x.Service, y.Service))

@@ -204,12 +204,15 @@ func TestProject(t *testing.T) {
 
 func TestHost(t *testing.T) {
 	snap := testSnap(now)
+	in, out := 12288.0, 1024.0
+	snap.Host.Network = []snapshot.NetIf{{Name: "enp3s0", RxRate: &in, TxRate: &out}}
 	o, _, err := run(t, testCLI(t, &snap, nil), "host")
 	if err != nil {
 		t.Fatal(err)
 	}
 	mustContain(t, "host", o, "CPU:", "12.3% (4 cores: 10% 12% 14% 13%)", "3.0 GiB of 16.0 GiB used (18.8%)",
-		"512 KiB of 1.0 GiB", "0.43, 0.19, 0.12", "79 days, 8 h", "30.0 GiB of 250 GiB used (13.0%), 200 GiB free")
+		"512 KiB of 1.0 GiB", "0.43, 0.19, 0.12", "79 days, 8 h", "30.0 GiB of 250 GiB used (13.0%), 200 GiB free",
+		"Network enp3s0:", "12.0 KiB/s in, 1.0 KiB/s out")
 }
 
 func TestChecks(t *testing.T) {

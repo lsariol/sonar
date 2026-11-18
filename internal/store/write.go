@@ -19,6 +19,13 @@ type Minute struct {
 	Projects   []ProjectMinute
 	Containers []ContainerSeen
 	Updates    []Update // updates that ended during the minute
+	Network    []NetMinute
+}
+
+// NetMinute is how many bytes one host interface moved during the minute.
+type NetMinute struct {
+	Interface        string
+	RxBytes, TxBytes uint64
 }
 
 // Update is one service being replaced by a deploy.
@@ -157,6 +164,12 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 			INSERT INTO sonar.project_minutes (project, minute, state, evidence) VALUES ($1, $2, $3, $4)
 			ON CONFLICT (project, minute) DO UPDATE SET state = EXCLUDED.state, evidence = EXCLUDED.evidence`,
 			p.Project, start, int(p.State), string(p.Evidence))
+	}
+	for _, n := range m.Network {
+		b.Queue(`
+			INSERT INTO sonar.host_net_minutes (minute, interface, rx_bytes, tx_bytes) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (minute, interface) DO UPDATE SET rx_bytes = EXCLUDED.rx_bytes, tx_bytes = EXCLUDED.tx_bytes`,
+			start, n.Interface, int64(n.RxBytes), int64(n.TxBytes))
 	}
 	for _, u := range m.Updates {
 		b.Queue(`

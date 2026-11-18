@@ -253,7 +253,26 @@ type monitorHostAnswer struct {
 	GeneratedAt   time.Time         `json:"generated_at"`
 	Now           *hostNow          `json:"now"` // nil until the agent has read the host
 	Points        []hostDetailPoint `json:"points"`
+	Network       []netSeries       `json:"network"` // per interface; empty without the host's network counters
 	Updates       []publicUpdate    `json:"updates"` // every project's
+}
+
+type netSeries struct {
+	Interface string     `json:"interface"`
+	Points    []netPoint `json:"points"` // only buckets with data
+}
+
+type netPoint struct {
+	T       time.Time `json:"t"`
+	Minutes int       `json:"minutes"`
+	RxBytes int64     `json:"rx_bytes"` // moved during the bucket
+	TxBytes int64     `json:"tx_bytes"`
+}
+
+type netNow struct {
+	Interface   string   `json:"interface"`
+	RxBytesPerS *float64 `json:"rx_bytes_per_s"`
+	TxBytesPerS *float64 `json:"tx_bytes_per_s"`
 }
 
 type hostNow struct {
@@ -271,6 +290,7 @@ type hostNow struct {
 	UptimeSeconds float64    `json:"uptime_seconds"`
 	BootedAt      *time.Time `json:"booted_at"`
 	Disk          *diskNow   `json:"disk"`
+	Network       []netNow   `json:"network"`
 }
 
 type diskNow struct {
@@ -316,6 +336,10 @@ func toHostNow(h *snapshot.Host) *hostNow {
 		booted := h.ReadAt.Add(-time.Duration(h.UptimeSeconds * float64(time.Second))).UTC().Truncate(time.Second)
 		n.BootedAt = &booted
 	}
+	n.Network = []netNow{}
+	for _, i := range h.Network {
+		n.Network = append(n.Network, netNow{Interface: i.Name, RxBytesPerS: roundPtr(i.RxRate, 1), TxBytesPerS: roundPtr(i.TxRate, 1)})
+	}
 	if d := h.Disk; d != nil {
 		n.Disk = &diskNow{Total: d.Total, Used: d.Used, Available: d.Available, UsedPct: round(d.UsedPercent, 2),
 			Inodes: d.Inodes, InodesFree: d.InodesFree}
@@ -325,10 +349,21 @@ func toHostNow(h *snapshot.Host) *hostNow {
 
 // buildMonitorHost lays the host's buckets out as points, one per bucket in
 // the range, a gap where there's no data.
-func buildMonitorHost(now time.Time, name string, r historyRange, snap *snapshot.Snapshot, buckets []store.HostDetailBucket, updates []store.Update) monitorHostAnswer {
+func buildMonitorHost(now time.Time, name string, r historyRange, snap *snapshot.Snapshot, buckets []store.HostDetailBucket,
+	network []store.NetBucket, updates []store.Update) monitorHostAnswer {
 	from, to := historySpan(now, r)
 	answer := monitorHostAnswer{Range: name, From: from, To: to, BucketSeconds: int(r.bucket / time.Second),
-		GeneratedAt: now.UTC(), Points: make([]hostDetailPoint, 0, int(r.length/r.bucket)), Updates: []publicUpdate{}}
+		GeneratedAt: now.UTC(), Points: make([]hostDetailPoint, 0, int(r.length/r.bucket)), Network: []netSeries{},
+		Updates: []publicUpdate{}}
+	for _, b := range network {
+		n := len(answer.Network)
+		if n == 0 || answer.Network[n-1].Interface != b.Interface {
+			answer.Network = append(answer.Network, netSeries{Interface: b.Interface, Points: []netPoint{}})
+			n++
+		}
+		answer.Network[n-1].Points = append(answer.Network[n-1].Points,
+			netPoint{T: b.Start, Minutes: b.Minutes, RxBytes: b.RxBytes, TxBytes: b.TxBytes})
+	}
 	if snap != nil {
 		answer.Now = toHostNow(snap.Host)
 	}

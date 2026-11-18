@@ -313,6 +313,9 @@ func (c *CLI) host(ctx context.Context, args []string) error {
 	} else {
 		rows = append(rows, [2]string{"Disk", "-"})
 	}
+	for _, n := range h.Network {
+		rows = append(rows, [2]string{"Network " + n.Name, fmt.Sprintf("%s in, %s out", rateOf(n.RxRate), rateOf(n.TxRate))})
+	}
 	fields(rows)
 
 	if !snap.Fresh(c.opts.Now()) {

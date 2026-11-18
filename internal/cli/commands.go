@@ -104,7 +104,7 @@ func commandTable() []command {
 			group:   groupOverview,
 			summary: "The server's CPU, memory, load and disk",
 			usages: []usage{
-				{"host", "Show the host's latest figures: CPU (overall and per core), memory and swap in use, load averages, how long it has been up, and the disk containers are stored on."},
+				{"host", "Show the host's latest figures: CPU (overall and per core), memory and swap in use, load averages, how long it has been up, the disk containers are stored on, and each network interface's traffic."},
 			},
 			run: (*CLI).host,
 		},

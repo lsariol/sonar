@@ -93,6 +93,17 @@ type Host struct {
 	Load15            float64   `json:"load15"`
 	UptimeSeconds     float64   `json:"uptime_seconds"`
 	Disk              *Disk     `json:"disk"`
+	Network           []NetIf   `json:"network"` // nil without the host's network counters
+}
+
+// NetIf is one host network interface: its rates over the last two
+// readings (nil until there are two) and its counters.
+type NetIf struct {
+	Name    string   `json:"name"`
+	RxRate  *float64 `json:"rx_rate"`
+	TxRate  *float64 `json:"tx_rate"`
+	RxBytes uint64   `json:"rx_bytes"`
+	TxBytes uint64   `json:"tx_bytes"`
 }
 
 // Disk is the filesystem containers are stored on.

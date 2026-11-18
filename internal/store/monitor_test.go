@@ -35,6 +35,7 @@ func TestMonitorReads(t *testing.T) {
 			m.Checks[0].Slow, m.Checks[0].State = 0, state.Up
 		}
 		m.Projects = []ProjectMinute{{Project: "plop", State: st, Evidence: state.Checked}}
+		m.Network = []NetMinute{{Interface: "enp3s0", RxBytes: 1000, TxBytes: 50}, {Interface: "docker0", RxBytes: 1, TxBytes: 2}}
 		if err := app.WriteMinute(ctx, m); err != nil {
 			t.Fatal(err)
 		}
@@ -98,6 +99,12 @@ func TestMonitorReads(t *testing.T) {
 	}
 	if other, err := reader.ServiceUsage(ctx, base, end, 5*time.Minute, "lys"); err != nil || len(other) != 0 {
 		t.Errorf("another project's usage = %+v, %v", other, err)
+	}
+
+	network, err := reader.HostNetwork(ctx, base, end, 10*time.Minute)
+	if err != nil || len(network) != 4 || network[2].Interface != "enp3s0" || network[2].Minutes != 10 ||
+		network[2].RxBytes != 10000 || network[3].RxBytes != 8000 || network[3].TxBytes != 400 {
+		t.Errorf("network = %+v, %v; want docker0 and enp3s0, two buckets each", network, err)
 	}
 
 	host, err := reader.HostDetail(ctx, base, end, 10*time.Minute)

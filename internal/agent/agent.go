@@ -23,10 +23,11 @@ import (
 )
 
 const (
-	hostEvery   = 5 * time.Second
-	diskEvery   = 30 * time.Second
-	dockerEvery = 10 * time.Second
-	checksEvery = 30 * time.Second
+	hostEvery    = 5 * time.Second
+	diskEvery    = 30 * time.Second
+	dockerEvery  = 10 * time.Second
+	checksEvery  = 30 * time.Second
+	networkEvery = 10 * time.Second
 
 	// dockerFreshFor is how long the last container list stands in for
 	// failed ones before projects count as unknown.
@@ -49,6 +50,7 @@ const (
 	dockerCollector = "docker"
 	statsCollector  = "stats"
 	checksCollector = "checks"
+	netCollector    = "network"
 )
 
 // Docker is where the agent gets containers and their stats: sonar-proxy.
@@ -69,10 +71,14 @@ type Options struct {
 	Host     host.Reader
 	DiskPath string
 	ReadDisk func(string) (host.Disk, error) // host.ReadDisk unless set
-	Docker   Docker
-	Checker  Checker
-	Log      *slog.Logger
-	Now      func() time.Time // time.Now unless set
+
+	// NetDevPath is the host's /proc/net/dev; "" leaves network traffic out.
+	NetDevPath  string
+	ReadNetwork func(string) ([]host.Interface, error) // host.ReadNetwork unless set
+	Docker      Docker
+	Checker     Checker
+	Log         *slog.Logger
+	Now         func() time.Time // time.Now unless set
 
 	// OpenStore migrates and connects to the database; nil runs without one.
 	OpenStore func(ctx context.Context) (Store, error)
@@ -94,6 +100,10 @@ type Agent struct {
 	uptime   time.Duration
 	hostAt   time.Time
 	disk     *host.Disk
+
+	netIfs  []host.Interface // the last reading
+	netAt   time.Time
+	netRate map[string][2]*float64 // rx, tx bytes per second
 
 	containers  []containers.Container
 	uninspected []string                    // containers Docker couldn't inspect, for attention
@@ -145,6 +155,9 @@ func New(opts Options) *Agent {
 	if opts.ReadDisk == nil {
 		opts.ReadDisk = host.ReadDisk
 	}
+	if opts.ReadNetwork == nil {
+		opts.ReadNetwork = host.ReadNetwork
+	}
 	a := &Agent{
 		opts: opts,
 		collectors: map[string]*collector{
@@ -165,6 +178,9 @@ func New(opts Options) *Agent {
 	}
 	if opts.OpenStore != nil {
 		a.collectors[databaseCollector] = &collector{every: time.Minute}
+	}
+	if opts.NetDevPath != "" {
+		a.collectors[netCollector] = &collector{every: networkEvery}
 	}
 	return a
 }
@@ -201,6 +217,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	every(diskEvery, false, a.sampleDisk)
 	every(dockerEvery, false, a.sampleDocker)
 	every(checksEvery, true, a.runChecks)
+	if a.opts.NetDevPath != "" {
+		every(networkEvery, true, a.sampleNetwork)
+	}
 	every(hostEvery, true, func(context.Context) { a.tick() })
 	if a.opts.OpenStore != nil {
 		wg.Add(1)
@@ -268,6 +287,38 @@ func (a *Agent) sampleDisk(context.Context) {
 		a.disk = &d
 	}
 	a.record(diskCollector, err)
+}
+
+// sampleNetwork reads the host's network counters: rates for the snapshot,
+// bytes moved for the minute.
+func (a *Agent) sampleNetwork(context.Context) {
+	ifs, err := a.opts.ReadNetwork(a.opts.NetDevPath)
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.record(netCollector, err)
+	if err != nil {
+		return
+	}
+	now := a.opts.Now()
+	prev := make(map[string]host.Interface, len(a.netIfs))
+	for _, i := range a.netIfs {
+		prev[i.Name] = i
+	}
+	secs := now.Sub(a.netAt).Seconds()
+	rates := make(map[string][2]*float64, len(ifs))
+	grown := make(map[string]counters, len(ifs))
+	for _, i := range ifs {
+		p, ok := prev[i.Name]
+		if !ok {
+			rates[i.Name] = [2]*float64{}
+			continue
+		}
+		rates[i.Name] = [2]*float64{rate(p.RxBytes, i.RxBytes, secs), rate(p.TxBytes, i.TxBytes, secs)}
+		grown[i.Name] = counters{netRx: growth(p.RxBytes, i.RxBytes), netTx: growth(p.TxBytes, i.TxBytes)}
+	}
+	a.netIfs, a.netAt, a.netRate = ifs, now, rates
+	a.addNetworkMinute(now, grown)
 }
 
 func (a *Agent) sampleDocker(ctx context.Context) {

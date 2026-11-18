@@ -104,13 +104,14 @@ func runAgent() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	a := agent.New(agent.Options{
-		Version:  cfg.Version,
-		StateDir: snapshot.Dir,
-		Host:     host.Reader{Root: "/"},
-		DiskPath: "/",
-		Docker:   containers.NewClient(containers.Socket),
-		Checker:  checks.New(cfg.Version),
-		Log:      log,
+		Version:    cfg.Version,
+		StateDir:   snapshot.Dir,
+		Host:       host.Reader{Root: "/"},
+		DiskPath:   "/",
+		NetDevPath: host.NetDevPath,
+		Docker:     containers.NewClient(containers.Socket),
+		Checker:    checks.New(cfg.Version),
+		Log:        log,
 		OpenStore: func(ctx context.Context) (agent.Store, error) {
 			if err := store.Migrate(ctx, migratorURL, log); err != nil {
 				return nil, err

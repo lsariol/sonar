@@ -91,6 +91,12 @@ func (a *Agent) buildHost() *snapshot.Host {
 		Load15:            a.load.Fifteen,
 		UptimeSeconds:     a.uptime.Seconds(),
 	}
+	if c := a.collectors[netCollector]; c != nil && c.err == nil {
+		for _, i := range a.netIfs {
+			r := a.netRate[i.Name]
+			h.Network = append(h.Network, snapshot.NetIf{Name: i.Name, RxRate: r[0], TxRate: r[1], RxBytes: i.RxBytes, TxBytes: i.TxBytes})
+		}
+	}
 	if a.disk != nil {
 		d := a.disk
 		h.Disk = &snapshot.Disk{Total: d.Total, Used: d.Used, Available: d.Available, UsedPercent: d.UsedPercent(),

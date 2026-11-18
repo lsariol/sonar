@@ -232,6 +232,41 @@ func (s *Store) HostDetail(ctx context.Context, from, to time.Time, bucket time.
 	return out, nil
 }
 
+// NetBucket is the bytes one host interface moved over one stretch of a
+// chart.
+type NetBucket struct {
+	Interface        string
+	Start            time.Time
+	Minutes          int
+	RxBytes, TxBytes int64
+}
+
+// HostNetwork adds each interface's minutes from from to to into buckets of
+// the given size, aligned to UTC, by interface. Buckets without minutes
+// aren't returned.
+func (s *Store) HostNetwork(ctx context.Context, from, to time.Time, bucket time.Duration) ([]NetBucket, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT interface, date_bin($3, minute, TIMESTAMPTZ '2000-01-01 00:00:00+00'), count(*),
+		       sum(rx_bytes)::bigint, sum(tx_bytes)::bigint
+		  FROM sonar.host_net_minutes
+		 WHERE minute >= $1 AND minute < $2
+		 GROUP BY 1, 2
+		 ORDER BY 1, 2`, from.UTC(), to.UTC(), bucket)
+	if err != nil {
+		return nil, fmt.Errorf("database: reading host network: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (NetBucket, error) {
+		var b NetBucket
+		err := r.Scan(&b.Interface, &b.Start, &b.Minutes, &b.RxBytes, &b.TxBytes)
+		b.Start = b.Start.UTC()
+		return b, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("database: reading host network: %w", err)
+	}
+	return out, nil
+}
+
 func utcPtr(t *time.Time) *time.Time {
 	if t == nil {
 		return nil

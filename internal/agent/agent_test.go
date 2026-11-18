@@ -439,3 +439,50 @@ func TestCheckPath(t *testing.T) {
 		t.Errorf("attention = %v, want plop's check path refused", s.Attention)
 	}
 }
+
+// TestNetwork: two readings give rates and the bytes moved in the minute;
+// without the host's counters the collector is unsupported, not failing.
+func TestNetwork(t *testing.T) {
+	a, clk := newTestAgent(t, &fakeDocker{}, &fakeChecker{})
+	readings := [][]host.Interface{
+		{{Name: "enp3s0", RxBytes: 1000, TxBytes: 500}},
+		{{Name: "enp3s0", RxBytes: 21000, TxBytes: 1500}, {Name: "docker0", RxBytes: 7, TxBytes: 7}},
+	}
+	a.opts.NetDevPath = "/host/net/dev"
+	a.collectors[netCollector] = &collector{every: networkEvery}
+	a.opts.ReadNetwork = func(string) ([]host.Interface, error) {
+		r := readings[0]
+		readings = readings[1:]
+		return r, nil
+	}
+	a.sampleHost()
+	a.sampleNetwork(context.Background())
+	clk.t = clk.t.Add(10 * time.Second)
+	a.sampleNetwork(context.Background())
+
+	s := a.build()
+	if s.Host == nil || len(s.Host.Network) != 2 {
+		t.Fatalf("network = %+v", s.Host)
+	}
+	enp := s.Host.Network[0]
+	if enp.Name != "enp3s0" || enp.RxRate == nil || *enp.RxRate != 2000 || *enp.TxRate != 100 {
+		t.Errorf("enp3s0 = %+v, want 2000 B/s in, 100 out", enp)
+	}
+	if d := s.Host.Network[1]; d.RxRate != nil {
+		t.Errorf("docker0's first reading has a rate: %+v", d)
+	}
+	m := a.bucketAt(clk.t).minute()
+	if len(m.Network) != 1 || m.Network[0].RxBytes != 20000 || m.Network[0].TxBytes != 1000 {
+		t.Errorf("minute network = %+v, want enp3s0 20000/1000", m.Network)
+	}
+
+	a.opts.ReadNetwork = host.ReadNetwork
+	a.opts.NetDevPath = filepath.Join(t.TempDir(), "dev")
+	a.sampleNetwork(context.Background())
+	if st := a.build().Collectors[netCollector]; st.State != snapshot.Unsupported {
+		t.Errorf("without the mount: %+v, want unsupported", st)
+	}
+	if s := a.build(); s.Host.Network != nil {
+		t.Errorf("a failed reading still shows the network: %+v", s.Host.Network)
+	}
+}

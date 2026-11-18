@@ -51,6 +51,7 @@ type Reader interface {
 	CheckTroubles(ctx context.Context, from, to time.Time) ([]store.CheckTrouble, error)
 	ServiceUsage(ctx context.Context, from, to time.Time, bucket time.Duration, project string) ([]store.UsageBucket, error)
 	HostDetail(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.HostDetailBucket, error)
+	HostNetwork(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.NetBucket, error)
 	CheckSchemaVersion(ctx context.Context) error
 	Ping(ctx context.Context) error
 }
@@ -399,11 +400,15 @@ func (s *Server) hostHandler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
+			network, err := db.HostNetwork(ctx, from, to, hr.bucket)
+			if err != nil {
+				return nil, err
+			}
 			updates, err := db.UpdatesBetween(ctx, from, to)
 			if err != nil {
 				return nil, err
 			}
-			return buildMonitorHost(now, name, hr, s.snapshot(), buckets, updates), nil
+			return buildMonitorHost(now, name, hr, s.snapshot(), buckets, network, updates), nil
 		})
 	})
 }
