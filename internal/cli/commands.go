@@ -72,7 +72,7 @@ func commandTable() []command {
 			group:   groupOverview,
 			summary: "Is Sonar itself healthy?",
 			usages: []usage{
-				{"status", "Show Sonar's version, how old the agent's snapshot is, the database, and each collector (host, filesystem, docker, stats, checks, database) with its last reading. Prints one \"Needs attention\" line and exits non-zero when something is wrong."},
+				{"status", "Show Sonar's version, how old the agent's snapshot is, the database, and each collector (host, filesystem, docker, stats, checks, database) with its last reading. Prints one \"Needs attention\" line and exits non-zero when something is wrong, Spark's own conditions included (a full disk, heavy swap, an infrastructure project down)."},
 			},
 			examples: []example{{"status", "after a deploy, or when the status page looks wrong"}},
 			run:      (*CLI).status,

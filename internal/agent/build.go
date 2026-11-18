@@ -22,6 +22,7 @@ func (a *Agent) build() snapshot.Snapshot {
 		Collectors:  make(map[string]snapshot.Collector, len(a.collectors)),
 		Projects:    []snapshot.Project{},
 		Checks:      []snapshot.Check{},
+		Conditions:  []snapshot.Condition{},
 		Attention:   []string{},
 	}
 
@@ -68,6 +69,7 @@ func (a *Agent) build() snapshot.Snapshot {
 	dockerLastOK := a.collectors[dockerCollector].lastOK
 	dockerFresh := !dockerLastOK.IsZero() && now.Sub(dockerLastOK) <= dockerFreshFor
 	s.Projects = a.buildProjects(now, checksByProject, dockerFresh)
+	s.Conditions = a.trackConditions(now, conditions(s))
 	return s
 }
 
@@ -112,6 +114,11 @@ func (a *Agent) buildProjects(now time.Time, checksByProject map[string][]state.
 	projects := make([]snapshot.Project, 0, len(byProject))
 	for name, services := range byProject {
 		p := snapshot.Project{Project: name, Services: []snapshot.Service{}}
+		for _, cs := range services {
+			for _, c := range cs {
+				p.Tier = cmp.Or(p.Tier, c.Tier)
+			}
+		}
 		var counted []state.State
 		for svcName, cs := range services {
 			k := serviceKey{name, svcName}
@@ -184,6 +191,9 @@ func addFloat(sum, v *float64) *float64 {
 	return &n
 }
 
+// noReadingYet is a collector's error before its first attempt ends.
+const noReadingYet = "no reading yet"
+
 // status is how a collector is doing at now.
 func (c *collector) status(now time.Time) snapshot.Collector {
 	st := snapshot.Collector{}
@@ -197,7 +207,7 @@ func (c *collector) status(now time.Time) snapshot.Collector {
 	case c.err != nil:
 		st.State, st.Error = snapshot.Unavailable, c.err.Error()
 	case c.lastOK.IsZero():
-		st.State, st.Error = snapshot.Unavailable, "no reading yet"
+		st.State, st.Error = snapshot.Unavailable, noReadingYet
 	case now.Sub(c.lastOK) > 3*c.every:
 		st.State = snapshot.Stale
 	default:

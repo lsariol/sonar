@@ -215,6 +215,7 @@ func toContainer(c inspected) containers.Container {
 		PublicURL:     labels[containers.PublicURLLabel],
 		CheckPath:     labels[containers.CheckPathLabel],
 		Version:       labels[containers.VersionLabel],
+		Tier:          labels[containers.TierLabel],
 	}
 	if out.Project == "" {
 		out.Service = name

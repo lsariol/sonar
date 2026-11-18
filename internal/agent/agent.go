@@ -108,6 +108,8 @@ type Agent struct {
 	updates  map[serviceKey]*update     // updates in progress
 	watching bool                       // the baseline is set: a new service is a deploy
 
+	conditionSince map[string]time.Time // when each current condition began
+
 	buckets map[time.Time]*bucket // minutes still being added up
 	pending []store.Minute        // finished minutes waiting for the database
 }
@@ -158,6 +160,8 @@ func New(opts Options) *Agent {
 		buckets:  make(map[time.Time]*bucket),
 		seen:     make(map[serviceKey]seenService),
 		updates:  make(map[serviceKey]*update),
+
+		conditionSince: make(map[string]time.Time),
 	}
 	if opts.OpenStore != nil {
 		a.collectors[databaseCollector] = &collector{every: time.Minute}

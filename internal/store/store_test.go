@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"strings"
@@ -100,9 +101,10 @@ func sampleMinute(at time.Time) Minute {
 func TestMigrations(t *testing.T) {
 	s := open(t)
 	ctx := context.Background()
+	files, _ := fs.Glob(embeddedMigrations, "migrations/*.sql")
 	have, want, err := s.SchemaVersion(ctx)
-	if err != nil || have != want || want != 3 {
-		t.Errorf("SchemaVersion = %d, %d, %v; want 3, 3", have, want, err)
+	if err != nil || have != want || want != int64(len(files)) {
+		t.Errorf("SchemaVersion = %d, %d, %v; want %d, %[4]d", have, want, err, len(files))
 	}
 	if err := s.CheckSchemaVersion(ctx); err != nil {
 		t.Error(err)

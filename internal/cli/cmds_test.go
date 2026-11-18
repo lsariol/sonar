@@ -140,13 +140,21 @@ func TestStatusHealthy(t *testing.T) {
 func TestStatusNeedsAttention(t *testing.T) {
 	snap := testSnap(now.Add(-2 * time.Minute))
 	snap.Attention = []string{"cove/cove: label com.mobasity.public-url=\"https://cove\" must be a public hostname"}
+	snap.Conditions = []snapshot.Condition{
+		{ID: "disk", Level: "warning", Message: "The disk is 89% full: 50.0 GB free of 450.0 GB", Since: now.Add(-time.Hour)},
+		{ID: "collector", Subject: "docker", Level: "critical", Message: "Sonar can't read docker: refused", Since: now},
+	}
 	db := goodDB()
 	db.schemaErr = errors.New("database: the schema is at version 1, this Sonar needs 2.")
 	_, _, err := run(t, testCLI(t, &snap, db), "status")
 	if err == nil {
 		t.Fatal("status with problems returned nil")
 	}
-	mustContain(t, "the error", err.Error(), "Needs attention: ", "the snapshot is 2 min old", "cove/cove", "needs 2")
+	mustContain(t, "the error", err.Error(), "Needs attention: ", "the snapshot is 2 min old", "cove/cove", "needs 2",
+		"warning: The disk is 89% full: 50.0 GB free of 450.0 GB (since ")
+	if strings.Contains(err.Error(), "can't read docker") {
+		t.Errorf("a collector's condition repeats its attention line: %q", err)
+	}
 	if strings.Count(err.Error(), "..") > 0 || !strings.HasSuffix(err.Error(), ".") {
 		t.Errorf("one sentence ending in a single period: %q", err)
 	}

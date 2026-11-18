@@ -36,6 +36,11 @@ func (c *CLI) status(ctx context.Context, args []string) error {
 			problems = append(problems, fmt.Sprintf("the snapshot is %s old: is sonar-agent running? (docker logs sonar-agent)", age(now, snap.GeneratedAt)))
 		}
 		problems = append(problems, snap.Attention...)
+		for _, cond := range snap.Conditions {
+			if cond.ID != "collector" { // already in the attention list
+				problems = append(problems, fmt.Sprintf("%s: %s (since %s)", cond.Level, cond.Message, formatTime(cond.Since)))
+			}
+		}
 	}
 
 	db, err := c.database(ctx)

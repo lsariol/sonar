@@ -45,7 +45,24 @@ type Snapshot struct {
 	Host        *Host                `json:"host"`       // nil until the host has been read
 	Projects    []Project            `json:"projects"`
 	Checks      []Check              `json:"checks"`
-	Attention   []string             `json:"attention"` // problems for `sonar status`
+	Conditions  []Condition          `json:"conditions"` // what's wrong with Spark itself
+	Attention   []string             `json:"attention"`  // problems for `sonar status`
+}
+
+// Condition levels.
+const (
+	Warning  = "warning"
+	Critical = "critical"
+)
+
+// Condition is something wrong with Spark itself (a full disk, heavy swap,
+// an infrastructure project down) and since when.
+type Condition struct {
+	ID      string    `json:"id"`      // what kind: disk, memory, project, ...
+	Subject string    `json:"subject"` // which one, for kinds with several: a project, a collector; else ""
+	Level   string    `json:"level"`   // warning or critical
+	Message string    `json:"message"`
+	Since   time.Time `json:"since"`
 }
 
 // Fresh reports whether the snapshot is recent enough to trust at now.
@@ -91,6 +108,7 @@ type Disk struct {
 // Project is a compose project and its services.
 type Project struct {
 	Project  string         `json:"project"`
+	Tier     string         `json:"tier"` // from the tier label; "" until Lighthouse sets it
 	State    state.State    `json:"state"`
 	Evidence state.Evidence `json:"evidence"`
 	Services []Service      `json:"services"`

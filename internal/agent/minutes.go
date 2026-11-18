@@ -58,6 +58,7 @@ type checkSum struct {
 	latSum, latMax           int64
 	latN                     int
 	state                    state.State
+	lastError                string
 }
 
 type projectSum struct {
@@ -175,6 +176,7 @@ func (a *Agent) addCheckMinute(now time.Time, t target, r checks.Result, st stat
 	switch r.Outcome {
 	case checks.Failed:
 		c.failures++
+		c.lastError = r.Error
 	case checks.Slow:
 		c.slow++
 	}
@@ -266,7 +268,7 @@ func (b *bucket) minute() store.Minute {
 	}
 	for k, c := range b.checks {
 		cm := store.CheckMinute{Project: k.project, Service: k.service, URL: c.url, Attempts: c.attempts,
-			Failures: c.failures, Slow: c.slow, State: c.state}
+			Failures: c.failures, Slow: c.slow, State: c.state, LastError: c.lastError}
 		if c.latN > 0 {
 			avg, hi := int(c.latSum/int64(c.latN)), int(c.latMax)
 			cm.LatencyAvgMs, cm.LatencyMaxMs = &avg, &hi

@@ -60,6 +60,7 @@ type CheckMinute struct {
 	LatencyAvgMs             *int // over the checks that answered
 	LatencyMaxMs             *int
 	State                    state.State // after the minute's last check
+	LastError                string      // the last failed check's error; "" when none failed
 }
 
 // ProjectMinute is a project's worst known state over one minute.
@@ -142,12 +143,14 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 	}
 	for _, c := range m.Checks {
 		b.Queue(`
-			INSERT INTO sonar.check_minutes (service_id, minute, url, attempts, failures, slow, latency_ms_avg, latency_ms_max, state)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			INSERT INTO sonar.check_minutes (service_id, minute, url, attempts, failures, slow, latency_ms_avg, latency_ms_max, state, last_error)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			ON CONFLICT (service_id, minute) DO UPDATE SET
 				url = EXCLUDED.url, attempts = EXCLUDED.attempts, failures = EXCLUDED.failures, slow = EXCLUDED.slow,
-				latency_ms_avg = EXCLUDED.latency_ms_avg, latency_ms_max = EXCLUDED.latency_ms_max, state = EXCLUDED.state`,
-			ids[key(c.Project, c.Service)], start, c.URL, c.Attempts, c.Failures, c.Slow, c.LatencyAvgMs, c.LatencyMaxMs, int(c.State))
+				latency_ms_avg = EXCLUDED.latency_ms_avg, latency_ms_max = EXCLUDED.latency_ms_max, state = EXCLUDED.state,
+				last_error = EXCLUDED.last_error`,
+			ids[key(c.Project, c.Service)], start, c.URL, c.Attempts, c.Failures, c.Slow, c.LatencyAvgMs, c.LatencyMaxMs, int(c.State),
+			nullString(c.LastError))
 	}
 	for _, p := range m.Projects {
 		b.Queue(`
@@ -224,6 +227,13 @@ func upsertServices(ctx context.Context, tx pgx.Tx, m Minute) (map[string]int, e
 
 func key(project, service string) string {
 	return project + "\x00" + service
+}
+
+func nullString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func nullTime(t time.Time) *time.Time {
