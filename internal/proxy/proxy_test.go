@@ -133,7 +133,7 @@ func TestContainers(t *testing.T) {
 	if plop.Name != "plop" || plop.Project != "plop" || plop.Service != "plop" || plop.Image != "plop-plop" ||
 		plop.State != "running" || plop.Health != "healthy" || plop.RestartCount != 2 ||
 		plop.RestartPolicy != "unless-stopped" || plop.CPULimit != 1.5 || plop.MemoryLimit != 536870912 ||
-		plop.PublicURL != "https://plop.mobasity.com" || plop.Version != "v1.4.0" ||
+		plop.PublicURL != "https://plop.mobasity.com" || plop.CheckPath != "/healthz" || plop.Version != "v1.4.0" ||
 		plop.StartedAt == nil || !plop.StartedAt.Equal(started) || plop.FinishedAt != nil {
 		t.Errorf("plop = %+v", plop)
 	}

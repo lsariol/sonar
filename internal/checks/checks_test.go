@@ -232,3 +232,33 @@ func TestDescribe(t *testing.T) {
 		t.Errorf("describe = %q", got)
 	}
 }
+
+func TestTarget(t *testing.T) {
+	ok := map[[2]string]string{
+		{"https://vista.mobasity.com", ""}:                  "https://vista.mobasity.com",
+		{"https://vista.mobasity.com", "/healthz"}:          "https://vista.mobasity.com/healthz",
+		{"https://vista.mobasity.com/app", " /healthz "}:    "https://vista.mobasity.com/healthz",
+		{"https://plop.mobasity.com/?a=1", "/ready?full=1"}: "https://plop.mobasity.com/ready?full=1",
+	}
+	for in, want := range ok {
+		if got, err := Target(in[0], in[1]); err != nil || got != want {
+			t.Errorf("Target(%q, %q) = %q, %v; want %q", in[0], in[1], got, err, want)
+		}
+	}
+
+	refused := map[[2]string]string{
+		{"https://cove", "/healthz"}:                                   "internal name",
+		{"https://vista.mobasity.com", "healthz"}:                      "start with /",
+		{"https://vista.mobasity.com", "//evil.example/x"}:             "not a full address",
+		{"https://vista.mobasity.com", "https://evil.example/"}:        "not a full address",
+		{"https://vista.mobasity.com", "/healthz#top"}:                 "#",
+		{"https://vista.mobasity.com", "/%zz"}:                         "isn't a URL path",
+		{"https://vista.mobasity.com", "/" + strings.Repeat("a", 300)}: "longer than",
+	}
+	for in, want := range refused {
+		_, err := Target(in[0], in[1])
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Target(%q, %q) = %v, want an error mentioning %q", in[0], in[1], err, want)
+		}
+	}
+}

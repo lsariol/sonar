@@ -71,6 +71,38 @@ func Validate(raw string) (*url.URL, error) {
 	return u, nil
 }
 
+// maxCheckPath is the longest check-path label Sonar accepts.
+const maxCheckPath = 256
+
+// Target is the address to check for a public URL and a check-path label:
+// the URL itself when the path is empty, else the URL's scheme and host with
+// that path (and its query). It says why when either can't be checked.
+func Target(publicURL, checkPath string) (string, error) {
+	u, err := Validate(publicURL)
+	if err != nil {
+		return "", err
+	}
+	checkPath = strings.TrimSpace(checkPath)
+	if checkPath == "" {
+		return u.String(), nil
+	}
+	p, err := url.Parse(checkPath)
+	switch {
+	case len(checkPath) > maxCheckPath:
+		return "", fmt.Errorf("check path is longer than %d characters", maxCheckPath)
+	case err != nil:
+		return "", errors.New("check path isn't a URL path")
+	case p.Scheme != "" || p.Host != "" || strings.HasPrefix(checkPath, "//"):
+		return "", errors.New("check path must be a path such as /healthz, not a full address: the host comes from the public-url label")
+	case !strings.HasPrefix(p.Path, "/"):
+		return "", errors.New("check path must start with /")
+	case p.Fragment != "" || strings.Contains(checkPath, "#"):
+		return "", errors.New("check path mustn't contain #")
+	}
+	u.Path, u.RawPath, u.RawQuery = p.Path, p.RawPath, p.RawQuery
+	return u.String(), nil
+}
+
 func internalName(host string) bool {
 	for _, suffix := range []string{".local", ".internal", ".lan", ".home", ".localhost", ".localdomain"} {
 		if strings.HasSuffix(host, suffix) {

@@ -113,7 +113,7 @@ func commandTable() []command {
 			group:   groupChecks,
 			summary: "Public addresses checked from outside",
 			usages: []usage{
-				{"checks", "List every public address Sonar checks (from each service's com.mobasity.public-url label): its state, the last check's time, result and latency, and the last error. Labels Sonar refuses to check are listed with the reason."},
+				{"checks", "List every public address Sonar checks (from each service's com.mobasity.public-url label, with the path in com.mobasity.check-path when it has one): its state, the last check's time, result and latency, and the last error. Labels Sonar refuses to check are listed with the reason."},
 			},
 			run: (*CLI).checks,
 		},

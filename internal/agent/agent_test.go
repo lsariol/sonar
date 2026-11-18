@@ -412,3 +412,30 @@ func TestRun(t *testing.T) {
 		t.Errorf("Run = %v", err)
 	}
 }
+
+// TestCheckPath: a check-path label replaces the public URL's path, so a site
+// behind a sign-in is checked where it answers without one; a bad path is
+// reported, not checked.
+func TestCheckPath(t *testing.T) {
+	vista := running('a', "vista", "vista", "https://vista.mobasity.com")
+	vista.CheckPath = "/healthz"
+	bad := running('b', "plop", "plop", "https://plop.mobasity.com")
+	bad.CheckPath = "https://elsewhere.example/healthz"
+	c := &fakeChecker{}
+	a, _ := newTestAgent(t, &fakeDocker{list: []containers.Container{vista, bad}}, c)
+	a.sampleDocker(context.Background())
+	a.runChecks(context.Background())
+
+	if !slices.Equal(c.checked, []string{"https://vista.mobasity.com/healthz"}) {
+		t.Errorf("checked %v, want only vista's /healthz", c.checked)
+	}
+	s := a.build()
+	if len(s.Checks) != 1 || s.Checks[0].URL != "https://vista.mobasity.com/healthz" || s.Checks[0].Project != "vista" {
+		t.Errorf("checks = %+v", s.Checks)
+	}
+	if !slices.ContainsFunc(s.Attention, func(m string) bool {
+		return strings.HasPrefix(m, "plop/plop: ") && strings.Contains(m, "com.mobasity.check-path") && strings.Contains(m, "not a full address")
+	}) {
+		t.Errorf("attention = %v, want plop's check path refused", s.Attention)
+	}
+}

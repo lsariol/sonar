@@ -13,6 +13,7 @@ const (
 	ProjectLabel   = "com.docker.compose.project"
 	ServiceLabel   = "com.docker.compose.service"
 	PublicURLLabel = "com.mobasity.public-url"
+	CheckPathLabel = "com.mobasity.check-path" // checked instead of the public URL's own path
 	VersionLabel   = "com.mobasity.version"
 )
 
@@ -34,6 +35,7 @@ type Container struct {
 	CPULimit      float64    `json:"cpu_limit"`    // cores; 0 when unlimited
 	MemoryLimit   int64      `json:"memory_limit"` // bytes; 0 when unlimited
 	PublicURL     string     `json:"public_url"`
+	CheckPath     string     `json:"check_path"`
 	Version       string     `json:"version"`
 }
 

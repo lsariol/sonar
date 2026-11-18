@@ -119,6 +119,11 @@ type collector struct {
 	err    error
 }
 
+// labels are one service's check labels.
+type labels struct {
+	project, service, publicURL, checkPath string
+}
+
 // target is one public address to check, and whose it is.
 type target struct {
 	project, service, url string
@@ -364,26 +369,35 @@ func rate(prev, cur uint64, per float64) *float64 {
 	return &v
 }
 
-// updateTargets reads the public-url labels: valid ones become targets,
-// the rest are reported. Checks of labels that went away are forgotten.
+// updateTargets reads the public-url and check-path labels: valid ones
+// become targets, the rest are reported. Checks of labels that went away are
+// forgotten.
 func (a *Agent) updateTargets() {
 	var targets []target
 	var refused []string
-	seen := make(map[target]bool)
+	seen := make(map[labels]bool)
 	for _, c := range a.containers {
 		if c.PublicURL == "" {
 			continue
 		}
-		t := target{project: c.Project, service: c.Service, url: c.PublicURL}
-		if seen[t] {
+		k := labels{c.Project, c.Service, c.PublicURL, c.CheckPath}
+		if seen[k] {
 			continue
 		}
-		seen[t] = true
-		if _, err := checks.Validate(c.PublicURL); err != nil {
-			refused = append(refused, fmt.Sprintf("%s: label %s=%q %s", whose(c.Project, c.Service), containers.PublicURLLabel, c.PublicURL, err))
+		seen[k] = true
+		checked, err := checks.Target(c.PublicURL, c.CheckPath)
+		if err != nil {
+			label := fmt.Sprintf("label %s=%q", containers.PublicURLLabel, c.PublicURL)
+			if c.CheckPath != "" {
+				label += fmt.Sprintf(" with %s=%q", containers.CheckPathLabel, c.CheckPath)
+			}
+			refused = append(refused, fmt.Sprintf("%s: %s: %s", whose(c.Project, c.Service), label, err))
 			continue
 		}
-		targets = append(targets, t)
+		t := target{project: c.Project, service: c.Service, url: checked}
+		if !slices.Contains(targets, t) {
+			targets = append(targets, t)
+		}
 	}
 	slices.SortFunc(targets, func(x, y target) int {
 		return cmp.Or(cmp.Compare(x.project, y.project), cmp.Compare(x.service, y.service), cmp.Compare(x.url, y.url))

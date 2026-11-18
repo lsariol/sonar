@@ -213,6 +213,7 @@ func toContainer(c inspected) containers.Container {
 		FinishedAt:    optionalTime(c.State.FinishedAt),
 		MemoryLimit:   c.HostConfig.Memory,
 		PublicURL:     labels[containers.PublicURLLabel],
+		CheckPath:     labels[containers.CheckPathLabel],
 		Version:       labels[containers.VersionLabel],
 	}
 	if out.Project == "" {
