@@ -82,6 +82,10 @@ type Options struct {
 
 	// OpenStore migrates and connects to the database; nil runs without one.
 	OpenStore func(ctx context.Context) (Store, error)
+
+	// OpenMonitor connects to sparkdb as sonar_monitor; nil leaves the
+	// databases out.
+	OpenMonitor func(ctx context.Context) (DatabaseMonitor, error)
 }
 
 // Agent collects and writes the snapshot.
@@ -100,6 +104,10 @@ type Agent struct {
 	uptime   time.Duration
 	hostAt   time.Time
 	disk     *host.Disk
+
+	monitor     DatabaseMonitor
+	databases   *store.DatabaseUse // the last reading
+	databasesAt time.Time
 
 	netIfs  []host.Interface // the last reading
 	netAt   time.Time
@@ -182,6 +190,9 @@ func New(opts Options) *Agent {
 	if opts.NetDevPath != "" {
 		a.collectors[netCollector] = &collector{every: networkEvery}
 	}
+	if opts.OpenMonitor != nil {
+		a.collectors[databasesCollector] = &collector{every: databasesEvery}
+	}
 	return a
 }
 
@@ -219,6 +230,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	every(checksEvery, true, a.runChecks)
 	if a.opts.NetDevPath != "" {
 		every(networkEvery, true, a.sampleNetwork)
+	}
+	if a.opts.OpenMonitor != nil {
+		every(databasesEvery, true, a.sampleDatabases)
 	}
 	every(hostEvery, true, func(context.Context) { a.tick() })
 	if a.opts.OpenStore != nil {

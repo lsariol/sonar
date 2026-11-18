@@ -2,8 +2,9 @@
 --
 -- Creates what's missing and fixes ownership and access:
 --   roles     sonar_owner (NOLOGIN), sonar_migrator (member of the owner,
---             acting as it), sonar_app, sonar_reader
---   database  sonar_db, owned by sonar_owner; only the three login roles may
+--             acting as it), sonar_app, sonar_reader, and sonar_monitor
+--             (pg_read_all_stats: every database's size and connections)
+--   database  sonar_db, owned by sonar_owner; only the four login roles may
 --             connect
 --   schema    sonar, if it exists already: owned by sonar_owner
 -- Everything inside the schema (tables, grants) comes from Sonar's goose
@@ -16,6 +17,7 @@
 -- Run as the Admin superuser (on Spark, over SSH):
 --   docker exec -i sparkdb psql -U Admin -d postgres \
 --     -v migrator_password="..." -v app_password="..." -v reader_password="..." \
+--     -v monitor_password="..." \
 --     -f - < scripts/db/setup.sql
 
 \set ON_ERROR_STOP on
@@ -25,6 +27,7 @@ SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sonar_owner')    AS n
        NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sonar_migrator') AS need_migrator,
        NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sonar_app')      AS need_app,
        NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sonar_reader')   AS need_reader,
+       NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sonar_monitor')  AS need_monitor,
        NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'sonar_db')    AS need_db,
        current_setting('is_superuser') = 'on' AS is_superuser
 \gset
@@ -54,6 +57,13 @@ DO $$ BEGIN RAISE EXCEPTION 'sonar_app doesn''t exist: pass its password with -v
 \if :{?reader_password}
 \else
 DO $$ BEGIN RAISE EXCEPTION 'sonar_reader doesn''t exist: pass its password with -v reader_password=... Nothing was changed.'; END $$;
+\endif
+\endif
+
+\if :need_monitor
+\if :{?monitor_password}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'sonar_monitor doesn''t exist: pass its password with -v monitor_password=... Nothing was changed.'; END $$;
 \endif
 \endif
 
@@ -88,6 +98,16 @@ CREATE ROLE sonar_reader LOGIN PASSWORD :'reader_password';
 ALTER ROLE sonar_reader LOGIN;
 \endif
 
+\if :need_monitor
+\echo 'Creating sonar_monitor'
+CREATE ROLE sonar_monitor LOGIN PASSWORD :'monitor_password';
+\else
+ALTER ROLE sonar_monitor LOGIN;
+\endif
+-- Reads every database's size and every session's state, nothing else:
+-- pg_read_all_stats, not the wider pg_monitor.
+GRANT pg_read_all_stats TO sonar_monitor;
+
 -- The migrator acts as the owner, so everything the migrations create is
 -- owned by sonar_owner, not by whoever ran them.
 GRANT sonar_owner TO sonar_migrator;
@@ -103,7 +123,7 @@ ALTER DATABASE sonar_db OWNER TO sonar_owner;
 \endif
 
 REVOKE ALL ON DATABASE sonar_db FROM PUBLIC;
-GRANT CONNECT ON DATABASE sonar_db TO sonar_migrator, sonar_app, sonar_reader;
+GRANT CONNECT ON DATABASE sonar_db TO sonar_migrator, sonar_app, sonar_reader, sonar_monitor;
 
 -- 4. Inside the database: the sonar schema (if an earlier setup made it)
 -- belongs to the owner, and nobody else may create objects in public.
@@ -128,11 +148,12 @@ SELECT r.rolname AS role, r.rolcanlogin AS can_login,
        CASE r.rolname
          WHEN 'sonar_owner'    THEN 'NOLOGIN'
          WHEN 'sonar_migrator' THEN 'LOGIN, member of sonar_owner, role=sonar_owner'
+         WHEN 'sonar_monitor'  THEN 'LOGIN, member of pg_read_all_stats'
          ELSE 'LOGIN'
        END AS want
   FROM pg_roles r
- WHERE r.rolname IN ('sonar_owner', 'sonar_migrator', 'sonar_app', 'sonar_reader')
+ WHERE r.rolname IN ('sonar_owner', 'sonar_migrator', 'sonar_app', 'sonar_reader', 'sonar_monitor')
  ORDER BY r.rolname;
 SELECT datname AS database, pg_get_userbyid(datdba) AS owner, array_to_string(datacl, ' ') AS access,
-       'owner sonar_owner; c (connect) for migrator, app, reader' AS want
+       'owner sonar_owner; c (connect) for migrator, app, reader, monitor' AS want
   FROM pg_database WHERE datname = 'sonar_db';

@@ -20,6 +20,14 @@ type Minute struct {
 	Containers []ContainerSeen
 	Updates    []Update // updates that ended during the minute
 	Network    []NetMinute
+	Databases  []DatabaseMinute
+}
+
+// DatabaseMinute is one database on sparkdb at the minute's last reading.
+type DatabaseMinute struct {
+	Database            string
+	Connections, Active int
+	SizeBytes           int64
 }
 
 // NetMinute is how many bytes one host interface moved during the minute.
@@ -170,6 +178,13 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 			INSERT INTO sonar.host_net_minutes (minute, interface, rx_bytes, tx_bytes) VALUES ($1, $2, $3, $4)
 			ON CONFLICT (minute, interface) DO UPDATE SET rx_bytes = EXCLUDED.rx_bytes, tx_bytes = EXCLUDED.tx_bytes`,
 			start, n.Interface, int64(n.RxBytes), int64(n.TxBytes))
+	}
+	for _, d := range m.Databases {
+		b.Queue(`
+			INSERT INTO sonar.database_minutes (minute, database, connections, active, size_bytes) VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (database, minute) DO UPDATE SET
+				connections = EXCLUDED.connections, active = EXCLUDED.active, size_bytes = EXCLUDED.size_bytes`,
+			start, d.Database, d.Connections, d.Active, d.SizeBytes)
 	}
 	for _, u := range m.Updates {
 		b.Queue(`

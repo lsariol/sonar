@@ -45,8 +45,27 @@ type Snapshot struct {
 	Host        *Host                `json:"host"`       // nil until the host has been read
 	Projects    []Project            `json:"projects"`
 	Checks      []Check              `json:"checks"`
+	Databases   *DatabaseServer      `json:"databases"`  // nil until sparkdb has been read
 	Conditions  []Condition          `json:"conditions"` // what's wrong with Spark itself
 	Attention   []string             `json:"attention"`  // problems for `sonar status`
+}
+
+// DatabaseServer is sparkdb: its connections and each database on it.
+type DatabaseServer struct {
+	ReadAt         time.Time  `json:"read_at"`
+	MaxConnections int        `json:"max_connections"`
+	Connections    int        `json:"connections"` // client connections to every database
+	Databases      []Database `json:"databases"`
+}
+
+// Database is one database on sparkdb.
+type Database struct {
+	Name           string `json:"name"`
+	Project        string `json:"project"` // the compose project it belongs to; "" when none matches
+	SizeBytes      int64  `json:"size_bytes"`
+	Connections    int    `json:"connections"`
+	Active         int    `json:"active"`
+	OldestXactSecs *int64 `json:"oldest_xact_secs"` // the oldest open transaction's age
 }
 
 // Condition levels.

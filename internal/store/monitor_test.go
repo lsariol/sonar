@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -114,5 +115,62 @@ func TestMonitorReads(t *testing.T) {
 	if h := host[0]; *h.MemUsedAvg != 3<<30 || *h.MemTotal != 16<<30 || *h.SwapUsedAvg != 512<<10 ||
 		*h.Load1Max < 0.59 || *h.DiskUsed != 28<<30 || *h.DiskTotal != 250<<30 || h.Samples != 120 {
 		t.Errorf("host detail = %+v", h)
+	}
+}
+
+// TestDatabaseUse reads sparkdb as sonar_monitor, and keeps the readings.
+func TestDatabaseUse(t *testing.T) {
+	app := open(t)
+	ctx := context.Background()
+	monitorURL := os.Getenv("SONAR_TEST_DATABASE_MONITOR_URL")
+	if monitorURL == "" {
+		t.Skip("no SONAR_TEST_DATABASE_MONITOR_URL: run scripts/test-db.sh up again, then eval \"$(scripts/test-db.sh env)\"")
+	}
+	monitor, err := Connect(ctx, monitorURL, "SONAR_TEST_DATABASE_MONITOR_URL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer monitor.Close()
+
+	use, err := monitor.DatabaseUse(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if use.MaxConnections < 1 || use.Connections < 1 {
+		t.Errorf("server = %+v, want a limit and at least this connection", use)
+	}
+	var sonar *DatabaseRow
+	for i, d := range use.Databases {
+		if d.Name == "sonar_db" {
+			sonar = &use.Databases[i]
+		}
+		if d.Name == "template0" || d.Name == "template1" {
+			t.Errorf("a template database is listed: %s", d.Name)
+		}
+	}
+	if sonar == nil || sonar.SizeBytes < 1<<20 || sonar.Connections < 1 {
+		t.Fatalf("sonar_db = %+v, want its size and connections", sonar)
+	}
+
+	// The monitor role reads statistics, never Sonar's tables.
+	if _, err := monitor.pool.Exec(ctx, "SELECT * FROM sonar.host_minutes"); err == nil {
+		t.Error("sonar_monitor can read sonar's tables")
+	}
+
+	base := time.Date(2026, 10, 21, 14, 0, 0, 0, time.UTC)
+	for n := range 3 {
+		m := Minute{Start: base.Add(time.Duration(n) * time.Minute), Databases: []DatabaseMinute{
+			{Database: "lys_db", Connections: 2 + n, Active: n, SizeBytes: int64(1000 + n)},
+		}}
+		if err := app.WriteMinute(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	history, err := app.DatabaseHistory(ctx, base, base.Add(time.Hour), time.Hour)
+	if err != nil || len(history) != 1 {
+		t.Fatalf("history = %+v, %v", history, err)
+	}
+	if h := history[0]; h.Database != "lys_db" || h.Minutes != 3 || h.ConnAvg != 3 || h.ConnMax != 4 || h.ActiveMax != 2 || h.SizeBytes != 1002 {
+		t.Errorf("history = %+v", h)
 	}
 }

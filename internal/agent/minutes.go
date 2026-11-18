@@ -26,6 +26,7 @@ type bucket struct {
 	projects   map[string]*projectSum
 	containers map[string]store.ContainerSeen
 	network    map[string]*counters // bytes each host interface moved
+	databases  []store.DatabaseRow  // the minute's last reading of sparkdb
 	updates    []store.Update       // updates that ended during the minute
 }
 
@@ -303,6 +304,10 @@ func (b *bucket) minute() store.Minute {
 		m.Network = append(m.Network, store.NetMinute{Interface: name, RxBytes: n.netRx, TxBytes: n.netTx})
 	}
 	slices.SortFunc(m.Network, func(x, y store.NetMinute) int { return cmp.Compare(x.Interface, y.Interface) })
+	for _, d := range b.databases {
+		m.Databases = append(m.Databases, store.DatabaseMinute{Database: d.Name, Connections: d.Connections, Active: d.Active,
+			SizeBytes: d.SizeBytes})
+	}
 
 	slices.SortFunc(m.Services, func(x, y store.ServiceMinute) int {
 		return cmp.Or(cmp.Compare(x.Project, y.Project), cmp.Compare(x.Service, y.Service))

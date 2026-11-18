@@ -17,6 +17,7 @@ const (
 	memWarnPct, memCritPct     = 90, 95 // of memory used
 	swapWarnPct, swapCritPct   = 50, 80 // of swap used
 	loadWarnPerCore            = 2.0    // 15-minute load per core
+	connWarnPct, connCritPct   = 80, 95 // of sparkdb's connections in use
 )
 
 // Lighthouse's tiers whose projects Spark itself depends on.
@@ -70,6 +71,13 @@ func conditions(s snapshot.Snapshot) []snapshot.Condition {
 		}
 		if cores := len(h.CorePercents); cores > 0 && h.Load15 >= loadWarnPerCore*float64(cores) {
 			add("load", "", snapshot.Warning, fmt.Sprintf("The 15-minute load is %.1f on %d cores", h.Load15, cores))
+		}
+	}
+
+	if d := s.Databases; d != nil && d.MaxConnections > 0 {
+		pct := float64(d.Connections) / float64(d.MaxConnections) * 100
+		if level := above(pct, connWarnPct, connCritPct); level != "" {
+			add("connections", "", level, fmt.Sprintf("sparkdb has %d of its %d connections in use", d.Connections, d.MaxConnections))
 		}
 	}
 

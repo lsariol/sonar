@@ -83,6 +83,7 @@ func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 		{"check_minutes", "minute", minuteCutoff},
 		{"project_minutes", "minute", minuteCutoff},
 		{"host_net_minutes", "minute", minuteCutoff},
+		{"database_minutes", "minute", minuteCutoff},
 		{"project_days", "day", dayCutoff},
 		{"service_days", "day", dayCutoff},
 		{"containers", "last_seen", dayCutoff},

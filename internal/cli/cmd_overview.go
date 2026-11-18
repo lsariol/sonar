@@ -316,6 +316,9 @@ func (c *CLI) host(ctx context.Context, args []string) error {
 	for _, n := range h.Network {
 		rows = append(rows, [2]string{"Network " + n.Name, fmt.Sprintf("%s in, %s out", rateOf(n.RxRate), rateOf(n.TxRate))})
 	}
+	if d := snap.Databases; d != nil {
+		rows = append(rows, [2]string{"sparkdb", fmt.Sprintf("%d of %d connections, %d databases", d.Connections, d.MaxConnections, len(d.Databases))})
+	}
 	fields(rows)
 
 	if !snap.Fresh(c.opts.Now()) {

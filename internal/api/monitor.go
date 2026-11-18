@@ -609,3 +609,69 @@ func roundPtr(v *float64, places int) *float64 {
 	r := round(*v, places)
 	return &r
 }
+
+// --- GET /v1/monitor/databases ---
+
+type databasesAnswer struct {
+	Range         string           `json:"range"`
+	From          time.Time        `json:"from"`
+	To            time.Time        `json:"to"`
+	BucketSeconds int              `json:"bucket_seconds"`
+	GeneratedAt   time.Time        `json:"generated_at"`
+	Now           *databaseServer  `json:"now"` // nil until sparkdb has been read
+	Databases     []databaseSeries `json:"databases"`
+}
+
+type databaseServer struct {
+	ReadAt         time.Time     `json:"read_at"`
+	MaxConnections int           `json:"max_connections"`
+	Connections    int           `json:"connections"`
+	Databases      []databaseNow `json:"databases"`
+}
+
+type databaseNow struct {
+	Name           string  `json:"name"`
+	Project        *string `json:"project"` // nil when no compose project matches
+	SizeBytes      int64   `json:"size_bytes"`
+	Connections    int     `json:"connections"`
+	Active         int     `json:"active"`
+	OldestXactSecs *int64  `json:"oldest_xact_secs"`
+}
+
+type databaseSeries struct {
+	Name   string          `json:"name"`
+	Points []databasePoint `json:"points"` // only buckets with data
+}
+
+type databasePoint struct {
+	T           time.Time `json:"t"`
+	Minutes     int       `json:"minutes"`
+	Connections peak      `json:"connections"`
+	ActiveMax   int       `json:"active_max"`
+	SizeBytes   int64     `json:"size_bytes"` // the last reading in the bucket
+}
+
+func buildDatabases(now time.Time, name string, r historyRange, snap *snapshot.Snapshot, buckets []store.DatabaseBucket) databasesAnswer {
+	from, to := historySpan(now, r)
+	answer := databasesAnswer{Range: name, From: from, To: to, BucketSeconds: int(r.bucket / time.Second), GeneratedAt: now.UTC(),
+		Databases: []databaseSeries{}}
+	if snap != nil && snap.Databases != nil {
+		d := snap.Databases
+		answer.Now = &databaseServer{ReadAt: d.ReadAt.UTC(), MaxConnections: d.MaxConnections, Connections: d.Connections,
+			Databases: []databaseNow{}}
+		for _, db := range d.Databases {
+			answer.Now.Databases = append(answer.Now.Databases, databaseNow{Name: db.Name, Project: optString(db.Project),
+				SizeBytes: db.SizeBytes, Connections: db.Connections, Active: db.Active, OldestXactSecs: db.OldestXactSecs})
+		}
+	}
+	for _, b := range buckets {
+		n := len(answer.Databases)
+		if n == 0 || answer.Databases[n-1].Name != b.Database {
+			answer.Databases = append(answer.Databases, databaseSeries{Name: b.Database, Points: []databasePoint{}})
+			n++
+		}
+		answer.Databases[n-1].Points = append(answer.Databases[n-1].Points, databasePoint{T: b.Start, Minutes: b.Minutes,
+			Connections: peak{Avg: round(b.ConnAvg, 2), Max: float64(b.ConnMax)}, ActiveMax: b.ActiveMax, SizeBytes: b.SizeBytes})
+	}
+	return answer
+}

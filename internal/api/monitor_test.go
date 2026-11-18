@@ -14,7 +14,7 @@ import (
 )
 
 var monitorPaths = []string{"/v1/monitor/status", "/v1/monitor/projects", "/v1/monitor/conditions",
-	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states"}
+	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases"}
 
 // TestMonitorNeedsScope: only a token with monitor:read gets owner detail.
 func TestMonitorNeedsScope(t *testing.T) {
@@ -247,5 +247,33 @@ func TestStates(t *testing.T) {
 	}
 	if status, _, _ := do(t, s, "GET", "/v1/monitor/states?range=90d", "Bearer "+vistaToken); status != http.StatusBadRequest {
 		t.Errorf("range=90d: %d, want 400 (the minutes are kept 30 days)", status)
+	}
+}
+
+func TestDatabasesGolden(t *testing.T) {
+	at := now.Truncate(time.Hour)
+	r := &fakeReader{databases: []store.DatabaseBucket{
+		{Database: "lys_db", Start: at, Minutes: 5, ConnAvg: 3.333333, ConnMax: 5, ActiveMax: 1, SizeBytes: 12 << 20},
+		{Database: "sonar_db", Start: at.Add(-5 * time.Minute), Minutes: 5, ConnAvg: 6, ConnMax: 6, SizeBytes: 300 << 20},
+		{Database: "sonar_db", Start: at, Minutes: 4, ConnAvg: 6.5, ConnMax: 7, ActiveMax: 2, SizeBytes: 301 << 20},
+	}}
+	snap := monitorSnapshot(now)
+	oldest := int64(42)
+	snap.Databases = &snapshot.DatabaseServer{ReadAt: now.Add(-20 * time.Second), MaxConnections: 100, Connections: 12,
+		Databases: []snapshot.Database{
+			{Name: "AdminDB", SizeBytes: 8 << 20},
+			{Name: "lys_db", Project: "lys", SizeBytes: 12 << 20, Connections: 5, Active: 1, OldestXactSecs: &oldest},
+		}}
+	s := newTestServer(t, r, &fakeSnapshots{snap: snap})
+	status, _, body := do(t, s, "GET", "/v1/monitor/databases?range=24h", "Bearer "+vistaToken)
+	if status != http.StatusOK {
+		t.Fatalf("%d: %s", status, body)
+	}
+	golden(t, "monitor-databases.json", body)
+
+	s = newTestServer(t, &fakeReader{}, &fakeSnapshots{snap: testSnapshot(now)})
+	_, _, body = do(t, s, "GET", "/v1/monitor/databases", "Bearer "+vistaToken)
+	if !strings.Contains(string(body), `"now":null`) {
+		t.Errorf("before sparkdb has been read: %s", body)
 	}
 }

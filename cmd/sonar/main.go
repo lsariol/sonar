@@ -100,6 +100,10 @@ func runAgent() {
 	if err != nil {
 		fail(log, err)
 	}
+	monitorURL, err := config.Secret(os.Getenv, "SONAR_DATABASE_MONITOR_URL")
+	if err != nil {
+		fail(log, err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -126,6 +130,9 @@ func runAgent() {
 			}
 			log.Info("database ready")
 			return db, nil
+		},
+		OpenMonitor: func(ctx context.Context) (agent.DatabaseMonitor, error) {
+			return store.Connect(ctx, monitorURL, "SONAR_DATABASE_MONITOR_URL")
 		},
 	})
 	if err := a.Run(ctx); err != nil {

@@ -32,7 +32,7 @@ up)
 	sleep 2
 	until docker exec "$NAME" pg_isready -U Admin -q 2>/dev/null; do sleep 1; done
 	docker exec -i "$NAME" psql -U Admin -d postgres -q \
-		-v migrator_password=migrator -v app_password=app -v reader_password=reader \
+		-v migrator_password=migrator -v app_password=app -v reader_password=reader -v monitor_password=monitor \
 		-f - <scripts/db/setup.sql >/dev/null
 	echo "Test database ready on 127.0.0.1:$PORT. Next: eval \"\$(scripts/test-db.sh env)\"" >&2
 	;;
@@ -40,6 +40,7 @@ env)
 	echo "export SONAR_TEST_DATABASE_MIGRATOR_URL='postgres://sonar_migrator:migrator@127.0.0.1:$PORT/sonar_db?sslmode=disable'"
 	echo "export SONAR_TEST_DATABASE_URL='postgres://sonar_app:app@127.0.0.1:$PORT/sonar_db?sslmode=disable'"
 	echo "export SONAR_TEST_DATABASE_READER_URL='postgres://sonar_reader:reader@127.0.0.1:$PORT/sonar_db?sslmode=disable'"
+	echo "export SONAR_TEST_DATABASE_MONITOR_URL='postgres://sonar_monitor:monitor@127.0.0.1:$PORT/sonar_db?sslmode=disable'"
 	;;
 down)
 	docker rm -f "$NAME" >/dev/null

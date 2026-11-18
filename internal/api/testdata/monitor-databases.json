@@ -1,0 +1,72 @@
+{
+  "range": "24h",
+  "from": "2026-10-20T15:05:00Z",
+  "to": "2026-10-21T15:05:00Z",
+  "bucket_seconds": 300,
+  "generated_at": "2026-10-21T15:04:05Z",
+  "now": {
+    "read_at": "2026-10-21T15:03:45Z",
+    "max_connections": 100,
+    "connections": 12,
+    "databases": [
+      {
+        "name": "AdminDB",
+        "project": null,
+        "size_bytes": 8388608,
+        "connections": 0,
+        "active": 0,
+        "oldest_xact_secs": null
+      },
+      {
+        "name": "lys_db",
+        "project": "lys",
+        "size_bytes": 12582912,
+        "connections": 5,
+        "active": 1,
+        "oldest_xact_secs": 42
+      }
+    ]
+  },
+  "databases": [
+    {
+      "name": "lys_db",
+      "points": [
+        {
+          "t": "2026-10-21T15:00:00Z",
+          "minutes": 5,
+          "connections": {
+            "avg": 3.33,
+            "max": 5
+          },
+          "active_max": 1,
+          "size_bytes": 12582912
+        }
+      ]
+    },
+    {
+      "name": "sonar_db",
+      "points": [
+        {
+          "t": "2026-10-21T14:55:00Z",
+          "minutes": 5,
+          "connections": {
+            "avg": 6,
+            "max": 6
+          },
+          "active_max": 0,
+          "size_bytes": 314572800
+        },
+        {
+          "t": "2026-10-21T15:00:00Z",
+          "minutes": 4,
+          "connections": {
+            "avg": 6.5,
+            "max": 7
+          },
+          "active_max": 2,
+          "size_bytes": 315621376
+        }
+      ]
+    }
+  ]
+}
