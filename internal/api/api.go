@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/lsariol/sonar/internal/snapshot"
+	"github.com/lsariol/sonar/internal/state"
 	"github.com/lsariol/sonar/internal/store"
 )
 
@@ -34,7 +35,9 @@ const (
 )
 
 // paths are the endpoints the API serves, for its 404 and 405 answers.
-var paths = []string{"/healthz", "/v1/status", "/v1/status/history", "/v1/monitor/status"}
+var paths = []string{"/healthz", "/v1/status", "/v1/status/history",
+	"/v1/monitor/status", "/v1/monitor/projects", "/v1/monitor/conditions", "/v1/monitor/host",
+	"/v1/monitor/usage", "/v1/monitor/states"}
 
 // Reader is the database, as the API reads it (sonar_reader).
 type Reader interface {
@@ -42,6 +45,12 @@ type Reader interface {
 	ResponseTimes(ctx context.Context, since time.Time) (map[string]int, error)
 	HostHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.HostBucket, error)
 	UpdatesBetween(ctx context.Context, from, to time.Time) ([]store.Update, error)
+	StateRuns(ctx context.Context, current map[string]state.State) (map[string]store.StateRun, error)
+	StateSpans(ctx context.Context, from, to time.Time) ([]store.Span, error)
+	ServiceTroubles(ctx context.Context, from, to time.Time) ([]store.ServiceTrouble, error)
+	CheckTroubles(ctx context.Context, from, to time.Time) ([]store.CheckTrouble, error)
+	ServiceUsage(ctx context.Context, from, to time.Time, bucket time.Duration, project string) ([]store.UsageBucket, error)
+	HostDetail(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.HostDetailBucket, error)
 	CheckSchemaVersion(ctx context.Context) error
 	Ping(ctx context.Context) error
 }
@@ -75,6 +84,10 @@ type Server struct {
 	status        *cache[int]
 	monitorStatus *cache[int]
 	history       *cache[string]
+	projects      *cache[struct{}]
+	host          *cache[string]
+	usage         *cache[[2]string] // range, project
+	states        *cache[string]
 	refused       refusals
 }
 
@@ -89,7 +102,9 @@ func New(opts Options) (*Server, error) {
 	}
 	return &Server{opts: opts, creds: creds, dbErr: errors.New("not connected yet"),
 		status: newCache[int](statusCacheFor), monitorStatus: newCache[int](statusCacheFor),
-		history: newCache[string](historyCacheFor)}, nil
+		history: newCache[string](historyCacheFor), projects: newCache[struct{}](statusCacheFor),
+		host: newCache[string](statusCacheFor), usage: newCache[[2]string](historyCacheFor),
+		states: newCache[string](historyCacheFor)}, nil
 }
 
 // Handler routes the API.
@@ -99,6 +114,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/status", s.require(statusRead, s.statusHandler))
 	mux.HandleFunc("GET /v1/status/history", s.require(statusRead, s.historyHandler))
 	mux.HandleFunc("GET /v1/monitor/status", s.require(monitorRead, s.monitorStatusHandler))
+	mux.HandleFunc("GET /v1/monitor/projects", s.require(monitorRead, s.projectsHandler))
+	mux.HandleFunc("GET /v1/monitor/conditions", s.require(monitorRead, s.conditionsHandler))
+	mux.HandleFunc("GET /v1/monitor/host", s.require(monitorRead, s.hostHandler))
+	mux.HandleFunc("GET /v1/monitor/usage", s.require(monitorRead, s.usageHandler))
+	mux.HandleFunc("GET /v1/monitor/states", s.require(monitorRead, s.statesHandler))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if slices.Contains(paths, r.URL.Path) {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -286,13 +306,8 @@ func daysParam(w http.ResponseWriter, r *http.Request) (int, bool) {
 }
 
 func (s *Server) historyHandler(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("range")
-	if name == "" {
-		name = "24h"
-	}
-	hr, ok := historyRanges[name]
+	name, hr, ok := rangeParam(w, r, "24h", historyRanges)
 	if !ok {
-		writeError(w, http.StatusBadRequest, "range must be 1h, 24h, 7d or 30d")
 		return
 	}
 	s.answer(w, r, func(db Reader, now time.Time) ([]byte, error) {
@@ -312,12 +327,7 @@ func (s *Server) historyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) buildStatus(ctx context.Context, db Reader, now time.Time, days int, include func(string) bool) (statusAnswer, error) {
-	var snap *snapshot.Snapshot
-	if sn, err := s.opts.Snapshots.Load(); err == nil {
-		snap = &sn
-	} else {
-		s.opts.Log.Warn("no snapshot to serve", "err", err)
-	}
+	snap := s.snapshot()
 	from := windowOf(now, max(days, 90)).first
 	rows, err := db.ProjectDays(ctx, from, now)
 	if err != nil {
@@ -332,6 +342,118 @@ func (s *Server) buildStatus(ctx context.Context, db Reader, now time.Time, days
 		return statusAnswer{}, err
 	}
 	return buildStatus(now, snap, days, rows, updates, response, include), nil
+}
+
+// snapshot is the agent's latest snapshot, nil when there's none to read.
+func (s *Server) snapshot() *snapshot.Snapshot {
+	snap, err := s.opts.Snapshots.Load()
+	if err != nil {
+		s.opts.Log.Warn("no snapshot to serve", "err", err)
+		return nil
+	}
+	return &snap
+}
+
+// rangeParam is the range query parameter, def when it's missing; on a value
+// not in ranges it answers 400 and reports false.
+func rangeParam[V any](w http.ResponseWriter, r *http.Request, def string, ranges map[string]V) (string, V, bool) {
+	name := r.URL.Query().Get("range")
+	if name == "" {
+		name = def
+	}
+	v, ok := ranges[name]
+	if !ok {
+		writeError(w, http.StatusBadRequest, "range must be 1h, 24h, 7d or 30d")
+	}
+	return name, v, ok
+}
+
+func (s *Server) projectsHandler(w http.ResponseWriter, r *http.Request) {
+	s.answer(w, r, func(db Reader, now time.Time) ([]byte, error) {
+		return s.projects.get(struct{}{}, now, func(ctx context.Context) (any, error) {
+			snap := s.snapshot()
+			runs, err := db.StateRuns(ctx, currentStates(now, snap))
+			if err != nil {
+				return nil, err
+			}
+			return buildMonitorProjects(now, snap, runs), nil
+		})
+	})
+}
+
+// conditionsHandler needs no database: it's the snapshot alone, so it still
+// answers while sparkdb is down.
+func (s *Server) conditionsHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, buildConditions(s.opts.Now(), s.snapshot()))
+}
+
+func (s *Server) hostHandler(w http.ResponseWriter, r *http.Request) {
+	name, hr, ok := rangeParam(w, r, "24h", historyRanges)
+	if !ok {
+		return
+	}
+	s.answer(w, r, func(db Reader, now time.Time) ([]byte, error) {
+		return s.host.get(name, now, func(ctx context.Context) (any, error) {
+			from, to := historySpan(now, hr)
+			buckets, err := db.HostDetail(ctx, from, to, hr.bucket)
+			if err != nil {
+				return nil, err
+			}
+			updates, err := db.UpdatesBetween(ctx, from, to)
+			if err != nil {
+				return nil, err
+			}
+			return buildMonitorHost(now, name, hr, s.snapshot(), buckets, updates), nil
+		})
+	})
+}
+
+func (s *Server) usageHandler(w http.ResponseWriter, r *http.Request) {
+	name, hr, ok := rangeParam(w, r, "24h", historyRanges)
+	if !ok {
+		return
+	}
+	project := r.URL.Query().Get("project")
+	if len(project) > 128 {
+		writeError(w, http.StatusBadRequest, "project is a compose project name, at most 128 characters")
+		return
+	}
+	s.answer(w, r, func(db Reader, now time.Time) ([]byte, error) {
+		return s.usage.get([2]string{name, project}, now, func(ctx context.Context) (any, error) {
+			from, to := historySpan(now, hr)
+			buckets, err := db.ServiceUsage(ctx, from, to, hr.bucket, project)
+			if err != nil {
+				return nil, err
+			}
+			return buildUsage(now, name, hr, buckets), nil
+		})
+	})
+}
+
+func (s *Server) statesHandler(w http.ResponseWriter, r *http.Request) {
+	name, length, ok := rangeParam(w, r, "7d", statesRanges)
+	if !ok {
+		return
+	}
+	s.answer(w, r, func(db Reader, now time.Time) ([]byte, error) {
+		return s.states.get(name, now, func(ctx context.Context) (any, error) {
+			to := now.UTC().Truncate(time.Minute).Add(time.Minute)
+			from := to.Add(-length)
+			spans, err := db.StateSpans(ctx, from, to)
+			if err != nil {
+				return nil, err
+			}
+			services, err := db.ServiceTroubles(ctx, from, to)
+			if err != nil {
+				return nil, err
+			}
+			checks, err := db.CheckTroubles(ctx, from, to)
+			if err != nil {
+				return nil, err
+			}
+			return buildStates(now, name, length, spans, services, checks), nil
+		})
+	})
 }
 
 // answer serves what get builds, or 503 while the database can't answer.

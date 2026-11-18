@@ -1,0 +1,252 @@
+{
+  "generated_at": "2026-10-21T15:04:01Z",
+  "fresh": true,
+  "projects": [
+    {
+      "project": "cloudflared",
+      "tier": "infra",
+      "state": "operational",
+      "state_since": null,
+      "state_since_exact": false,
+      "evidence": "container",
+      "version": null,
+      "services": [],
+      "checks": []
+    },
+    {
+      "project": "cron",
+      "tier": null,
+      "state": "unknown",
+      "state_since": null,
+      "state_since_exact": false,
+      "evidence": "container",
+      "version": null,
+      "services": [
+        {
+          "service": "nightly",
+          "state": "unknown",
+          "counted": false,
+          "update": null,
+          "usage": {
+            "cpu_cores": null,
+            "memory_bytes": null,
+            "net_rx_bytes_per_s": null,
+            "net_tx_bytes_per_s": null,
+            "blk_read_bytes_per_s": null,
+            "blk_write_bytes_per_s": null
+          },
+          "containers": []
+        }
+      ],
+      "checks": []
+    },
+    {
+      "project": "lys",
+      "tier": null,
+      "state": "down",
+      "state_since": "2026-10-01T15:04:00Z",
+      "state_since_exact": false,
+      "evidence": "container",
+      "version": null,
+      "services": [
+        {
+          "service": "lys",
+          "state": "down",
+          "counted": true,
+          "update": null,
+          "usage": {
+            "cpu_cores": null,
+            "memory_bytes": null,
+            "net_rx_bytes_per_s": null,
+            "net_tx_bytes_per_s": null,
+            "blk_read_bytes_per_s": null,
+            "blk_write_bytes_per_s": null
+          },
+          "containers": []
+        }
+      ],
+      "checks": []
+    },
+    {
+      "project": "plop",
+      "tier": null,
+      "state": "operational",
+      "state_since": "2026-10-21T13:05:00Z",
+      "state_since_exact": true,
+      "evidence": "checked",
+      "version": "v1.4.0",
+      "services": [
+        {
+          "service": "plop",
+          "state": "operational",
+          "counted": true,
+          "update": null,
+          "usage": {
+            "cpu_cores": null,
+            "memory_bytes": 94371840,
+            "net_rx_bytes_per_s": null,
+            "net_tx_bytes_per_s": null,
+            "blk_read_bytes_per_s": null,
+            "blk_write_bytes_per_s": null
+          },
+          "containers": [
+            {
+              "name": "plop",
+              "image": "plop-plop",
+              "version": "v1.4.0",
+              "state": "running",
+              "health": "healthy",
+              "exit_code": 0,
+              "restart_count": 0,
+              "created_at": "0001-01-01T00:00:00Z",
+              "started_at": "2026-10-21T14:04:01Z",
+              "finished_at": null,
+              "cpu_limit": null,
+              "memory_limit": null,
+              "usage": {
+                "cpu_cores": null,
+                "memory_bytes": null,
+                "net_rx_bytes_per_s": null,
+                "net_tx_bytes_per_s": null,
+                "blk_read_bytes_per_s": null,
+                "blk_write_bytes_per_s": null
+              }
+            }
+          ]
+        },
+        {
+          "service": "secret-sidecar",
+          "state": "operational",
+          "counted": true,
+          "update": null,
+          "usage": {
+            "cpu_cores": null,
+            "memory_bytes": null,
+            "net_rx_bytes_per_s": null,
+            "net_tx_bytes_per_s": null,
+            "blk_read_bytes_per_s": null,
+            "blk_write_bytes_per_s": null
+          },
+          "containers": []
+        }
+      ],
+      "checks": [
+        {
+          "service": "plop",
+          "url": "https://plop.mobasity.com",
+          "state": "operational",
+          "last_at": "2026-10-21T15:04:01Z",
+          "last_outcome": "ok",
+          "last_status": 200,
+          "last_latency_ms": null,
+          "last_error": null,
+          "consecutive_failures": 0
+        }
+      ]
+    },
+    {
+      "project": "sparkdb",
+      "tier": null,
+      "state": "operational",
+      "state_since": null,
+      "state_since_exact": false,
+      "evidence": "container",
+      "version": null,
+      "services": [
+        {
+          "service": "db",
+          "state": "operational",
+          "counted": true,
+          "update": null,
+          "usage": {
+            "cpu_cores": null,
+            "memory_bytes": null,
+            "net_rx_bytes_per_s": null,
+            "net_tx_bytes_per_s": null,
+            "blk_read_bytes_per_s": null,
+            "blk_write_bytes_per_s": null
+          },
+          "containers": [
+            {
+              "name": "",
+              "image": "postgres:16.4",
+              "version": null,
+              "state": "",
+              "health": "",
+              "exit_code": 0,
+              "restart_count": 0,
+              "created_at": "0001-01-01T00:00:00Z",
+              "started_at": null,
+              "finished_at": null,
+              "cpu_limit": null,
+              "memory_limit": null,
+              "usage": {
+                "cpu_cores": null,
+                "memory_bytes": null,
+                "net_rx_bytes_per_s": null,
+                "net_tx_bytes_per_s": null,
+                "blk_read_bytes_per_s": null,
+                "blk_write_bytes_per_s": null
+              }
+            }
+          ]
+        }
+      ],
+      "checks": []
+    },
+    {
+      "project": "cove",
+      "tier": "infra",
+      "state": "degraded",
+      "state_since": null,
+      "state_since_exact": false,
+      "evidence": "container",
+      "version": "v1.0.0",
+      "services": [
+        {
+          "service": "cove",
+          "state": "degraded",
+          "counted": true,
+          "update": {
+            "since": "2026-10-21T15:03:41Z",
+            "from": "v1.0.0",
+            "to": "v1.1.0"
+          },
+          "usage": {
+            "cpu_cores": 0.25,
+            "memory_bytes": null,
+            "net_rx_bytes_per_s": null,
+            "net_tx_bytes_per_s": null,
+            "blk_read_bytes_per_s": null,
+            "blk_write_bytes_per_s": null
+          },
+          "containers": [
+            {
+              "name": "cove",
+              "image": "cove:local",
+              "version": "v1.0.0",
+              "state": "running",
+              "health": "starting",
+              "exit_code": 0,
+              "restart_count": 3,
+              "created_at": "2026-10-21T14:04:01Z",
+              "started_at": null,
+              "finished_at": null,
+              "cpu_limit": null,
+              "memory_limit": 67108864,
+              "usage": {
+                "cpu_cores": 0.25,
+                "memory_bytes": null,
+                "net_rx_bytes_per_s": null,
+                "net_tx_bytes_per_s": null,
+                "blk_read_bytes_per_s": null,
+                "blk_write_bytes_per_s": null
+              }
+            }
+          ]
+        }
+      ],
+      "checks": []
+    }
+  ]
+}

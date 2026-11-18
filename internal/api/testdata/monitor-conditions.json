@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-10-21T15:04:01Z",
+  "fresh": true,
+  "state": "warning",
+  "conditions": [
+    {
+      "id": "project",
+      "subject": "cove",
+      "level": "warning",
+      "message": "cove (infra) is degraded",
+      "since": "2026-10-21T15:01:01Z"
+    },
+    {
+      "id": "disk",
+      "subject": null,
+      "level": "warning",
+      "message": "The disk is 89% full: 50.0 GB free of 450.0 GB",
+      "since": "2026-10-21T14:04:01Z"
+    }
+  ],
+  "collectors": [
+    {
+      "name": "database",
+      "state": "unavailable",
+      "last_ok": null,
+      "error": "database: connection refused"
+    },
+    {
+      "name": "docker",
+      "state": "available",
+      "last_ok": "2026-10-21T15:04:01Z",
+      "error": null
+    }
+  ],
+  "attention": [
+    "cove/cove: label com.mobasity.public-url=\"https://cove\": must be a public hostname"
+  ]
+}

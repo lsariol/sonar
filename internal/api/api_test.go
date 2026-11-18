@@ -32,11 +32,19 @@ var (
 )
 
 type fakeReader struct {
-	days      []store.DayCounts
-	response  map[string]int
-	buckets   []store.HostBucket
-	updates   []store.Update
-	err       error
+	days     []store.DayCounts
+	response map[string]int
+	buckets  []store.HostBucket
+	updates  []store.Update
+	err      error
+
+	runs           map[string]store.StateRun
+	spans          []store.Span
+	serviceTrouble []store.ServiceTrouble
+	checkTrouble   []store.CheckTrouble
+	usage          []store.UsageBucket
+	hostDetail     []store.HostDetailBucket
+
 	dayCalls  atomic.Int32
 	histCalls atomic.Int32
 }
@@ -57,6 +65,42 @@ func (f *fakeReader) HostHistory(ctx context.Context, from, to time.Time, bucket
 
 func (f *fakeReader) UpdatesBetween(context.Context, time.Time, time.Time) ([]store.Update, error) {
 	return f.updates, f.err
+}
+
+func (f *fakeReader) StateRuns(_ context.Context, current map[string]state.State) (map[string]store.StateRun, error) {
+	out := make(map[string]store.StateRun)
+	for p := range current {
+		if r, ok := f.runs[p]; ok {
+			out[p] = r
+		}
+	}
+	return out, f.err
+}
+
+func (f *fakeReader) StateSpans(context.Context, time.Time, time.Time) ([]store.Span, error) {
+	return f.spans, f.err
+}
+
+func (f *fakeReader) ServiceTroubles(context.Context, time.Time, time.Time) ([]store.ServiceTrouble, error) {
+	return f.serviceTrouble, f.err
+}
+
+func (f *fakeReader) CheckTroubles(context.Context, time.Time, time.Time) ([]store.CheckTrouble, error) {
+	return f.checkTrouble, f.err
+}
+
+func (f *fakeReader) ServiceUsage(_ context.Context, _, _ time.Time, _ time.Duration, project string) ([]store.UsageBucket, error) {
+	var out []store.UsageBucket
+	for _, b := range f.usage {
+		if project == "" || b.Project == project {
+			out = append(out, b)
+		}
+	}
+	return out, f.err
+}
+
+func (f *fakeReader) HostDetail(context.Context, time.Time, time.Time, time.Duration) ([]store.HostDetailBucket, error) {
+	return f.hostDetail, f.err
 }
 
 func (f *fakeReader) CheckSchemaVersion(context.Context) error { return nil }

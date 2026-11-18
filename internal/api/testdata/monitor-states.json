@@ -1,0 +1,92 @@
+{
+  "range": "24h",
+  "from": "2026-10-20T15:05:00Z",
+  "to": "2026-10-21T15:05:00Z",
+  "generated_at": "2026-10-21T15:04:05Z",
+  "projects": [
+    {
+      "project": "plop",
+      "spans": [
+        {
+          "state": "operational",
+          "start": "2026-10-21T12:04:00Z",
+          "end": "2026-10-21T13:04:00Z",
+          "observed_minutes": 57,
+          "services": [],
+          "checks": []
+        },
+        {
+          "state": "down",
+          "start": "2026-10-21T13:04:00Z",
+          "end": "2026-10-21T13:09:00Z",
+          "observed_minutes": 5,
+          "services": [
+            {
+              "service": "plop",
+              "state": "down",
+              "minutes": 2
+            },
+            {
+              "service": "worker",
+              "state": "down",
+              "minutes": 1
+            }
+          ],
+          "checks": [
+            {
+              "service": "plop",
+              "url": "https://plop.mobasity.com",
+              "state": "down",
+              "failures": 3,
+              "slow": 0,
+              "last_error": "timed out after 5s"
+            }
+          ]
+        },
+        {
+          "state": "operational",
+          "start": "2026-10-21T13:09:00Z",
+          "end": "2026-10-21T13:44:00Z",
+          "observed_minutes": 35,
+          "services": [],
+          "checks": []
+        },
+        {
+          "state": "unknown",
+          "start": "2026-10-21T13:44:00Z",
+          "end": "2026-10-21T14:04:00Z",
+          "observed_minutes": 0,
+          "services": [],
+          "checks": []
+        },
+        {
+          "state": "operational",
+          "start": "2026-10-21T14:04:00Z",
+          "end": "2026-10-21T15:04:00Z",
+          "observed_minutes": 60,
+          "services": [],
+          "checks": []
+        }
+      ]
+    },
+    {
+      "project": "sparkdb",
+      "spans": [
+        {
+          "state": "updating",
+          "start": "2026-10-21T12:14:00Z",
+          "end": "2026-10-21T12:15:00Z",
+          "observed_minutes": 1,
+          "services": [
+            {
+              "service": "db",
+              "state": "updating",
+              "minutes": 1
+            }
+          ],
+          "checks": []
+        }
+      ]
+    }
+  ]
+}

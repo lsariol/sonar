@@ -1,0 +1,60 @@
+{
+  "range": "24h",
+  "from": "2026-10-20T15:05:00Z",
+  "to": "2026-10-21T15:05:00Z",
+  "bucket_seconds": 300,
+  "generated_at": "2026-10-21T15:04:05Z",
+  "services": [
+    {
+      "project": "plop",
+      "service": "plop",
+      "points": [
+        {
+          "t": "2026-10-21T14:55:00Z",
+          "minutes": 5,
+          "cpu_cores": {
+            "avg": 0.0123,
+            "max": 0.5
+          },
+          "memory_bytes": {
+            "avg": 83886080,
+            "max": 100663296
+          },
+          "net_rx_bytes": 1000,
+          "net_tx_bytes": 2000,
+          "blk_read_bytes": 0,
+          "blk_write_bytes": 4096
+        },
+        {
+          "t": "2026-10-21T15:00:00Z",
+          "minutes": 4,
+          "cpu_cores": null,
+          "memory_bytes": null,
+          "net_rx_bytes": 0,
+          "net_tx_bytes": 0,
+          "blk_read_bytes": 0,
+          "blk_write_bytes": 0
+        }
+      ]
+    },
+    {
+      "project": "sparkdb",
+      "service": "db",
+      "points": [
+        {
+          "t": "2026-10-21T15:00:00Z",
+          "minutes": 5,
+          "cpu_cores": {
+            "avg": 0.1,
+            "max": 0.2
+          },
+          "memory_bytes": null,
+          "net_rx_bytes": 0,
+          "net_tx_bytes": 0,
+          "blk_read_bytes": 0,
+          "blk_write_bytes": 0
+        }
+      ]
+    }
+  ]
+}
