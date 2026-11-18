@@ -18,7 +18,7 @@ One Go binary, run as three containers:
 
 ## Running it locally
 
-Needs Go 1.27.3 and Docker Desktop.
+Needs Go 1.27.4 and Docker Desktop.
 
 One-time setup, in the repo folder:
 
