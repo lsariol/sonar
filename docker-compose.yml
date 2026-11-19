@@ -16,11 +16,13 @@ services:
     network_mode: none                 # reached only through the socket in the proxy volume
     read_only: true
     cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH]         # reads and lists every data folder, never writes (Lighthouse policy.json)
     security_opt: ["no-new-privileges:true"]
     mem_limit: 64m
     pids_limit: 64
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock   # this service only (Lighthouse policy.json)
+      - /srv/server/storage:/host/storage:ro        # to size each project's data folder (Lighthouse policy.json)
       - proxy:/run/sonar-proxy
     healthcheck:
       test: ["CMD", "/sonar", "health", "proxy"]

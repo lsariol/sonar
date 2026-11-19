@@ -174,3 +174,36 @@ func TestDatabaseUse(t *testing.T) {
 		t.Errorf("history = %+v", h)
 	}
 }
+
+// TestDiskHistory keeps each measurement and reads back the last one in each
+// bucket, the totals first.
+func TestDiskHistory(t *testing.T) {
+	app := open(t)
+	ctx := context.Background()
+	for _, table := range []string{"project_disk", "disk_totals"} {
+		if _, err := app.pool.Exec(ctx, "DELETE FROM sonar."+table); err != nil {
+			t.Fatal(err)
+		}
+	}
+	day := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
+	for n := range 3 {
+		at := day.Add(time.Duration(10+n) * time.Hour)
+		data := int64(1000 * (n + 1))
+		m := Minute{Start: at.Truncate(time.Minute), Disk: &DiskMeasurement{MeasuredAt: at, Data: &data, Images: 50, BuildCache: 7,
+			Projects: []ProjectDiskRow{{Project: "lys", DataBytes: &data, ImageBytes: 5}, {Project: "plop", ContainerBytes: int64(n)}}}}
+		if err := app.WriteMinute(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	points, err := app.DiskHistory(ctx, day, day.AddDate(0, 0, 1), 24*time.Hour)
+	if err != nil || len(points) != 3 {
+		t.Fatalf("points = %+v, %v", points, err)
+	}
+	totals, lys, plop := points[0], points[1], points[2]
+	if totals.Project != "" || *totals.DataBytes != 3000 || totals.BuildCacheBytes != 7 || !totals.MeasuredAt.Equal(day.Add(12*time.Hour)) {
+		t.Errorf("totals = %+v", totals)
+	}
+	if lys.Project != "lys" || *lys.DataBytes != 3000 || plop.DataBytes != nil || plop.ContainerBytes != 2 {
+		t.Errorf("lys = %+v, plop = %+v", lys, plop)
+	}
+}

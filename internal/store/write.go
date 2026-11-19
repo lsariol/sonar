@@ -21,6 +21,23 @@ type Minute struct {
 	Updates    []Update // updates that ended during the minute
 	Network    []NetMinute
 	Databases  []DatabaseMinute
+	Disk       *DiskMeasurement // a new measurement of disk use, at most one a minute
+}
+
+// DiskMeasurement is one measurement of what each project keeps on disk.
+type DiskMeasurement struct {
+	MeasuredAt                              time.Time
+	Data                                    *int64
+	Images, Containers, Volumes, BuildCache int64
+	Projects                                []ProjectDiskRow
+}
+
+// ProjectDiskRow is one project in a measurement.
+type ProjectDiskRow struct {
+	Project                                 string
+	DataBytes                               *int64
+	DataUnreadable                          int64
+	ImageBytes, ContainerBytes, VolumeBytes int64
 }
 
 // DatabaseMinute is one database on sparkdb at the minute's last reading.
@@ -185,6 +202,25 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 			ON CONFLICT (database, minute) DO UPDATE SET
 				connections = EXCLUDED.connections, active = EXCLUDED.active, size_bytes = EXCLUDED.size_bytes`,
 			start, d.Database, d.Connections, d.Active, d.SizeBytes)
+	}
+	if d := m.Disk; d != nil {
+		at := d.MeasuredAt.UTC()
+		b.Queue(`
+			INSERT INTO sonar.disk_totals (measured_at, data_bytes, image_bytes, container_bytes, volume_bytes, build_cache_bytes)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (measured_at) DO UPDATE SET data_bytes = EXCLUDED.data_bytes, image_bytes = EXCLUDED.image_bytes,
+				container_bytes = EXCLUDED.container_bytes, volume_bytes = EXCLUDED.volume_bytes,
+				build_cache_bytes = EXCLUDED.build_cache_bytes`,
+			at, d.Data, d.Images, d.Containers, d.Volumes, d.BuildCache)
+		for _, p := range d.Projects {
+			b.Queue(`
+				INSERT INTO sonar.project_disk (project, measured_at, data_bytes, data_unreadable, image_bytes, container_bytes, volume_bytes)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+				ON CONFLICT (project, measured_at) DO UPDATE SET data_bytes = EXCLUDED.data_bytes,
+					data_unreadable = EXCLUDED.data_unreadable, image_bytes = EXCLUDED.image_bytes,
+					container_bytes = EXCLUDED.container_bytes, volume_bytes = EXCLUDED.volume_bytes`,
+				p.Project, at, p.DataBytes, p.DataUnreadable, p.ImageBytes, p.ContainerBytes, p.VolumeBytes)
+		}
 	}
 	for _, u := range m.Updates {
 		b.Queue(`

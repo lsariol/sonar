@@ -76,6 +76,7 @@ type Options struct {
 	NetDevPath  string
 	ReadNetwork func(string) ([]host.Interface, error) // host.ReadNetwork unless set
 	Docker      Docker
+	Disk        DiskReader // nil leaves disk use per project out
 	Checker     Checker
 	Log         *slog.Logger
 	Now         func() time.Time // time.Now unless set
@@ -104,6 +105,9 @@ type Agent struct {
 	uptime   time.Duration
 	hostAt   time.Time
 	disk     *host.Disk
+
+	storage      *snapshot.DiskUse // the last measurement
+	storageFiled time.Time         // the newest measurement filed for the database
 
 	monitor     DatabaseMonitor
 	databases   *store.DatabaseUse // the last reading
@@ -193,6 +197,9 @@ func New(opts Options) *Agent {
 	if opts.OpenMonitor != nil {
 		a.collectors[databasesCollector] = &collector{every: databasesEvery}
 	}
+	if opts.Disk != nil {
+		a.collectors[storageCollector] = &collector{every: storageEvery}
+	}
 	return a
 }
 
@@ -233,6 +240,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	if a.opts.OpenMonitor != nil {
 		every(databasesEvery, true, a.sampleDatabases)
+	}
+	if a.opts.Disk != nil {
+		every(storageEvery, true, a.sampleStorage)
 	}
 	every(hostEvery, true, func(context.Context) { a.tick() })
 	if a.opts.OpenStore != nil {

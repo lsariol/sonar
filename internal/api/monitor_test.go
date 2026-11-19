@@ -14,7 +14,7 @@ import (
 )
 
 var monitorPaths = []string{"/v1/monitor/status", "/v1/monitor/projects", "/v1/monitor/conditions",
-	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases"}
+	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases", "/v1/monitor/disk"}
 
 // TestMonitorNeedsScope: only a token with monitor:read gets owner detail.
 func TestMonitorNeedsScope(t *testing.T) {
@@ -275,5 +275,32 @@ func TestDatabasesGolden(t *testing.T) {
 	_, _, body = do(t, s, "GET", "/v1/monitor/databases", "Bearer "+vistaToken)
 	if !strings.Contains(string(body), `"now":null`) {
 		t.Errorf("before sparkdb has been read: %s", body)
+	}
+}
+
+func TestDiskGolden(t *testing.T) {
+	day := now.Truncate(24 * time.Hour)
+	data, more := int64(5<<30), int64(6<<30)
+	r := &fakeReader{disk: []store.DiskPoint{
+		{Project: "", Start: day, MeasuredAt: day.Add(14 * time.Hour), DataBytes: &more, ImageBytes: 9 << 30, BuildCacheBytes: 2 << 30},
+		{Project: "lys", Start: day.AddDate(0, 0, -1), MeasuredAt: day.Add(-30 * time.Minute), DataBytes: &data, ImageBytes: 30 << 20},
+		{Project: "lys", Start: day, MeasuredAt: day.Add(14 * time.Hour), DataBytes: &more, ImageBytes: 30 << 20, VolumeBytes: 1 << 20},
+		{Project: "plop", Start: day, MeasuredAt: day.Add(14 * time.Hour), ImageBytes: 12 << 20, ContainerBytes: 4096},
+	}}
+	snap := monitorSnapshot(now)
+	snap.Storage = &snapshot.DiskUse{MeasuredAt: now.Add(-10 * time.Minute), Seconds: 12.345,
+		Totals: snapshot.DiskTotals{Data: &more, Images: 9 << 30, BuildCache: 2 << 30},
+		Projects: []snapshot.ProjectDisk{
+			{Project: "lys", DataBytes: &more, DataFiles: 1200, ImageBytes: 30 << 20, VolumeBytes: 1 << 20},
+			{Project: "plop", ImageBytes: 12 << 20, ContainerBytes: 4096},
+		}}
+	s := newTestServer(t, r, &fakeSnapshots{snap: snap})
+	status, _, body := do(t, s, "GET", "/v1/monitor/disk", "Bearer "+vistaToken)
+	if status != http.StatusOK {
+		t.Fatalf("%d: %s", status, body)
+	}
+	golden(t, "monitor-disk.json", body)
+	if status, _, _ := do(t, s, "GET", "/v1/monitor/disk?range=24h", "Bearer "+vistaToken); status != http.StatusBadRequest {
+		t.Errorf("range=24h: %d, want 400 (disk is measured every 30 minutes)", status)
 	}
 }

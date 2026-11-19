@@ -50,6 +50,8 @@ func (f *fakeDocker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "OK")
 	case path == "/containers/json":
 		serveFile(w, "list.json")
+	case path == "/system/df":
+		serveFile(w, "df.json")
 	case strings.HasSuffix(path, "/json"):
 		serveFile(w, "inspect-"+strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/json")+".json")
 	case strings.HasSuffix(path, "/stats"):
@@ -77,17 +79,26 @@ func serveFile(w http.ResponseWriter, name string) {
 // setup returns the fake daemon and a proxy server in front of it.
 func setup(t *testing.T) (*fakeDocker, *httptest.Server) {
 	t.Helper()
+	fake, _, srv := setupServer(t)
+	return fake, srv
+}
+
+// setupServer is setup, with the proxy's Server too.
+func setupServer(t *testing.T) (*fakeDocker, *Server, *httptest.Server) {
+	t.Helper()
 	fake := &fakeDocker{}
 	dockerSrv := httptest.NewServer(fake)
 	t.Cleanup(dockerSrv.Close)
 
+	d := &docker{base: dockerSrv.URL, http: dockerSrv.Client(), slow: dockerSrv.Client()}
 	s := &Server{
-		docker: &docker{base: dockerSrv.URL, http: dockerSrv.Client()},
+		docker: d,
+		disk:   newDiskMeter(t.TempDir(), d),
 		log:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 	proxySrv := httptest.NewServer(s.Handler())
 	t.Cleanup(proxySrv.Close)
-	return fake, proxySrv
+	return fake, s, proxySrv
 }
 
 // get fetches path from the proxy and returns the status and body.
@@ -239,7 +250,7 @@ func TestOnlyFixedDockerCalls(t *testing.T) {
 	get(t, srv, "GET", "/healthz?x=1")
 
 	hex := `[0-9a-f]{64}`
-	allowed := regexp.MustCompile(`^GET (/_ping|/containers/json\?all=1|/containers/` + hex + `/json|/containers/` + hex + `/stats\?stream=false&one-shot=true)$`)
+	allowed := regexp.MustCompile(`^GET (/_ping|/system/df|/containers/json\?all=1|/containers/` + hex + `/json|/containers/` + hex + `/stats\?stream=false&one-shot=true)$`)
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
 	if len(fake.calls) == 0 {

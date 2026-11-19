@@ -46,6 +46,7 @@ type Snapshot struct {
 	Projects    []Project            `json:"projects"`
 	Checks      []Check              `json:"checks"`
 	Databases   *DatabaseServer      `json:"databases"`  // nil until sparkdb has been read
+	Storage     *DiskUse             `json:"storage"`    // nil until the proxy has measured
 	Conditions  []Condition          `json:"conditions"` // what's wrong with Spark itself
 	Attention   []string             `json:"attention"`  // problems for `sonar status`
 }
@@ -66,6 +67,34 @@ type Database struct {
 	Connections    int    `json:"connections"`
 	Active         int    `json:"active"`
 	OldestXactSecs *int64 `json:"oldest_xact_secs"` // the oldest open transaction's age
+}
+
+// DiskUse is what each project keeps on disk, as the proxy last measured.
+type DiskUse struct {
+	MeasuredAt time.Time     `json:"measured_at"`
+	Seconds    float64       `json:"seconds"`
+	Projects   []ProjectDisk `json:"projects"`
+	Totals     DiskTotals    `json:"totals"`
+}
+
+// ProjectDisk is one project's data folder and what Docker stores for it.
+type ProjectDisk struct {
+	Project        string `json:"project"`
+	DataBytes      *int64 `json:"data_bytes"` // nil without a data folder
+	DataFiles      int64  `json:"data_files"`
+	DataUnreadable int64  `json:"data_unreadable"` // entries that couldn't be read
+	ImageBytes     int64  `json:"image_bytes"`     // layers only its images have
+	ContainerBytes int64  `json:"container_bytes"` // its containers' writable layers
+	VolumeBytes    int64  `json:"volume_bytes"`
+}
+
+// DiskTotals is everything, shared image layers counted once.
+type DiskTotals struct {
+	Data       *int64 `json:"data"` // nil when the data folders couldn't be read
+	Images     int64  `json:"images"`
+	Containers int64  `json:"containers"`
+	Volumes    int64  `json:"volumes"`
+	BuildCache int64  `json:"build_cache"`
 }
 
 // Condition levels.

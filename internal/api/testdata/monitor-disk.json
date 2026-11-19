@@ -1,0 +1,85 @@
+{
+  "range": "30d",
+  "from": "2026-09-22T00:00:00Z",
+  "to": "2026-10-22T00:00:00Z",
+  "bucket_seconds": 86400,
+  "generated_at": "2026-10-21T15:04:05Z",
+  "now": {
+    "measured_at": "2026-10-21T14:54:05Z",
+    "seconds": 12.3,
+    "totals": {
+      "data_bytes": 6442450944,
+      "image_bytes": 9663676416,
+      "container_bytes": 0,
+      "volume_bytes": 0,
+      "build_cache_bytes": 2147483648
+    },
+    "projects": [
+      {
+        "project": "lys",
+        "data_bytes": 6442450944,
+        "data_files": 1200,
+        "data_unreadable": 0,
+        "image_bytes": 31457280,
+        "container_bytes": 0,
+        "volume_bytes": 1048576
+      },
+      {
+        "project": "plop",
+        "data_bytes": null,
+        "data_files": 0,
+        "data_unreadable": 0,
+        "image_bytes": 12582912,
+        "container_bytes": 4096,
+        "volume_bytes": 0
+      }
+    ]
+  },
+  "totals": [
+    {
+      "t": "2026-10-21T00:00:00Z",
+      "measured_at": "2026-10-21T14:00:00Z",
+      "data_bytes": 6442450944,
+      "image_bytes": 9663676416,
+      "container_bytes": 0,
+      "volume_bytes": 0,
+      "build_cache_bytes": 2147483648
+    }
+  ],
+  "projects": [
+    {
+      "project": "lys",
+      "points": [
+        {
+          "t": "2026-10-20T00:00:00Z",
+          "measured_at": "2026-10-20T23:30:00Z",
+          "data_bytes": 5368709120,
+          "image_bytes": 31457280,
+          "container_bytes": 0,
+          "volume_bytes": 0
+        },
+        {
+          "t": "2026-10-21T00:00:00Z",
+          "measured_at": "2026-10-21T14:00:00Z",
+          "data_bytes": 6442450944,
+          "image_bytes": 31457280,
+          "container_bytes": 0,
+          "volume_bytes": 1048576
+        }
+      ]
+    },
+    {
+      "project": "plop",
+      "points": [
+        {
+          "t": "2026-10-21T00:00:00Z",
+          "measured_at": "2026-10-21T14:00:00Z",
+          "data_bytes": null,
+          "image_bytes": 12582912,
+          "container_bytes": 4096,
+          "volume_bytes": 0
+        }
+      ]
+    }
+  ]
+}

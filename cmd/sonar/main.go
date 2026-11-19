@@ -80,7 +80,7 @@ func runProxy() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := proxy.New(proxy.DockerSocket, log).Serve(ctx, containers.Socket); err != nil {
+	if err := proxy.New(proxy.DockerSocket, proxy.StorageDir, log).Serve(ctx, containers.Socket); err != nil {
 		fail(log, err)
 	}
 	log.Info("Sonar stopped")
@@ -114,6 +114,7 @@ func runAgent() {
 		DiskPath:   "/",
 		NetDevPath: host.NetDevPath,
 		Docker:     containers.NewClient(containers.Socket),
+		Disk:       containers.NewClient(containers.Socket),
 		Checker:    checks.New(cfg.Version),
 		Log:        log,
 		OpenStore: func(ctx context.Context) (agent.Store, error) {

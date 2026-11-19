@@ -24,26 +24,26 @@ var errNotFound = errors.New("not found")
 // idPattern is a full container ID, checked before one goes into a path.
 var idPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-// docker is a minimal Docker Engine API client over its socket: the four read
+// docker is a minimal Docker Engine API client over its socket: the five read
 // calls the proxy makes, and nothing else.
 type docker struct {
 	base string
 	http *http.Client
+	slow *http.Client // for /system/df, which sizes every volume
 }
 
 func newDocker(socket string) *docker {
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", socket)
+		},
+		MaxIdleConnsPerHost: parallel,
+	}
 	return &docker{
 		base: "http://docker",
-		http: &http.Client{
-			Timeout: 10 * time.Second,
-			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-					var d net.Dialer
-					return d.DialContext(ctx, "unix", socket)
-				},
-				MaxIdleConnsPerHost: parallel,
-			},
-		},
+		http: &http.Client{Timeout: 10 * time.Second, Transport: transport},
+		slow: &http.Client{Timeout: diskTimeout, Transport: transport},
 	}
 }
 
@@ -159,11 +159,20 @@ func (d *docker) stats(ctx context.Context, id string) (rawStats, error) {
 
 // get fetches path and decodes the JSON answer into v (nil: discard it).
 func (d *docker) get(ctx context.Context, path string, v any) error {
+	return d.fetch(ctx, d.http, path, v)
+}
+
+// getSlow is get for a call that may take minutes.
+func (d *docker) getSlow(ctx context.Context, path string, v any) error {
+	return d.fetch(ctx, d.slow, path, v)
+}
+
+func (d *docker) fetch(ctx context.Context, client *http.Client, path string, v any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.base+path, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := d.http.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("Docker: %w: is the Docker socket mounted at %s?", err, DockerSocket)
 	}

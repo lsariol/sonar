@@ -70,6 +70,7 @@ func (a *Agent) build() snapshot.Snapshot {
 	dockerFresh := !dockerLastOK.IsZero() && now.Sub(dockerLastOK) <= dockerFreshFor
 	s.Projects = a.buildProjects(now, checksByProject, dockerFresh)
 	s.Databases = a.buildDatabases()
+	s.Storage = a.storage
 	s.Conditions = a.trackConditions(now, conditions(s))
 	return s
 }

@@ -1,0 +1,23 @@
+{
+  "LayersSize": 2500000000,
+  "Images": [
+    {"Id": "sha256:plop", "Size": 300000000, "SharedSize": 200000000, "Containers": 2, "RepoTags": ["plop-plop:latest"]},
+    {"Id": "sha256:postgres", "Size": 450000000, "SharedSize": 0, "Containers": 1},
+    {"Id": "sha256:old", "Size": 90000000, "SharedSize": -1, "Containers": 0}
+  ],
+  "Containers": [
+    {"Id": "aaaa", "ImageID": "sha256:plop", "SizeRw": 4096, "Labels": {"com.docker.compose.project": "plop", "com.example.secret": "SECRET-MARKER-df"}},
+    {"Id": "bbbb", "ImageID": "sha256:plop", "SizeRw": 8192, "Labels": {"com.docker.compose.project": "plop"}},
+    {"Id": "cccc", "ImageID": "sha256:postgres", "SizeRw": 100, "Labels": {"com.docker.compose.project": "sparkdb"}},
+    {"Id": "dddd", "ImageID": "sha256:old", "SizeRw": 7, "Labels": {}}
+  ],
+  "Volumes": [
+    {"Name": "sonar_state", "Labels": {"com.docker.compose.project": "sonar"}, "UsageData": {"Size": 65536, "RefCount": 2}},
+    {"Name": "anon", "Labels": null, "UsageData": {"Size": 1000, "RefCount": 0}},
+    {"Name": "unsized", "Labels": {"com.docker.compose.project": "plop"}, "UsageData": {"Size": -1, "RefCount": 1}}
+  ],
+  "BuildCache": [
+    {"ID": "x", "Size": 700000000, "Shared": false},
+    {"ID": "y", "Size": 50000000, "Shared": true}
+  ]
+}

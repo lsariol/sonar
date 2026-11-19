@@ -37,7 +37,7 @@ const (
 // paths are the endpoints the API serves, for its 404 and 405 answers.
 var paths = []string{"/healthz", "/v1/status", "/v1/status/history",
 	"/v1/monitor/status", "/v1/monitor/projects", "/v1/monitor/conditions", "/v1/monitor/host",
-	"/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases"}
+	"/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases", "/v1/monitor/disk"}
 
 // Reader is the database, as the API reads it (sonar_reader).
 type Reader interface {
@@ -53,6 +53,7 @@ type Reader interface {
 	HostDetail(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.HostDetailBucket, error)
 	HostNetwork(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.NetBucket, error)
 	DatabaseHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.DatabaseBucket, error)
+	DiskHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.DiskPoint, error)
 	CheckSchemaVersion(ctx context.Context) error
 	Ping(ctx context.Context) error
 }
@@ -91,6 +92,7 @@ type Server struct {
 	usage         *cache[[2]string] // range, project
 	states        *cache[string]
 	databases     *cache[string]
+	disk          *cache[string]
 	refused       refusals
 }
 
@@ -107,7 +109,8 @@ func New(opts Options) (*Server, error) {
 		status: newCache[int](statusCacheFor), monitorStatus: newCache[int](statusCacheFor),
 		history: newCache[string](historyCacheFor), projects: newCache[struct{}](statusCacheFor),
 		host: newCache[string](statusCacheFor), usage: newCache[[2]string](historyCacheFor),
-		states: newCache[string](historyCacheFor), databases: newCache[string](historyCacheFor)}, nil
+		states: newCache[string](historyCacheFor), databases: newCache[string](historyCacheFor),
+		disk: newCache[string](historyCacheFor)}, nil
 }
 
 // Handler routes the API.
@@ -123,6 +126,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/monitor/usage", s.require(monitorRead, s.usageHandler))
 	mux.HandleFunc("GET /v1/monitor/states", s.require(monitorRead, s.statesHandler))
 	mux.HandleFunc("GET /v1/monitor/databases", s.require(monitorRead, s.databasesHandler))
+	mux.HandleFunc("GET /v1/monitor/disk", s.require(monitorRead, s.diskHandler))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if slices.Contains(paths, r.URL.Path) {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -477,6 +481,28 @@ func (s *Server) databasesHandler(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			return buildDatabases(now, name, hr, s.snapshot(), buckets), nil
+		})
+	})
+}
+
+func (s *Server) diskHandler(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("range")
+	if name == "" {
+		name = "30d"
+	}
+	dr, ok := diskRanges[name]
+	if !ok {
+		writeError(w, http.StatusBadRequest, "range must be 7d, 30d, 90d or 380d")
+		return
+	}
+	s.answer(w, r, func(db Reader, now time.Time) ([]byte, error) {
+		return s.disk.get(name, now, func(ctx context.Context) (any, error) {
+			from, to := historySpan(now, dr)
+			points, err := db.DiskHistory(ctx, from, to, dr.bucket)
+			if err != nil {
+				return nil, err
+			}
+			return buildDisk(now, name, dr, s.snapshot(), points), nil
 		})
 	})
 }

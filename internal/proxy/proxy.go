@@ -1,6 +1,7 @@
 // Package proxy is sonar-proxy, the only part of Sonar with the Docker
-// socket. It answers three fixed requests on a Unix socket and builds every
-// Docker call itself: nothing a caller sends ever reaches Docker.
+// socket and the projects' data folders. It answers four fixed requests on a
+// Unix socket and builds every Docker call itself: nothing a caller sends
+// ever reaches Docker.
 package proxy
 
 import (
@@ -31,23 +32,27 @@ const (
 	statsTimeout = 3 * time.Second
 )
 
-// Server answers the agent's three requests.
+// Server answers the agent's four requests.
 type Server struct {
 	docker *docker
+	disk   *diskMeter
 	log    *slog.Logger
 }
 
-// New returns a server that reads Docker through dockerSocket.
-func New(dockerSocket string, log *slog.Logger) *Server {
-	return &Server{docker: newDocker(dockerSocket), log: log}
+// New returns a server that reads Docker through dockerSocket and measures
+// the data folders under storageDir.
+func New(dockerSocket, storageDir string, log *slog.Logger) *Server {
+	d := newDocker(dockerSocket)
+	return &Server{docker: d, disk: newDiskMeter(storageDir, d), log: log}
 }
 
-// Handler routes the three requests; any other path is 404, any other method
+// Handler routes the four requests; any other path is 404, any other method
 // 405. Query strings and bodies are never read.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/containers", s.containers)
 	mux.HandleFunc("GET /v1/stats", s.stats)
+	mux.HandleFunc("GET /v1/disk", s.diskUse)
 	mux.HandleFunc("GET /healthz", s.health)
 	return mux
 }
@@ -84,6 +89,7 @@ func (s *Server) Serve(ctx context.Context, path string) error {
 		srv.Shutdown(shutdown)
 	}()
 
+	go s.disk.run(ctx, diskFirstAfter)
 	s.log.Info("proxy listening", "socket", path)
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("proxy: %w", err)
@@ -171,6 +177,12 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, answer)
+}
+
+// diskUse is the latest measurement; measuring happens in the background,
+// so asking costs nothing.
+func (s *Server) diskUse(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.disk.latest())
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {

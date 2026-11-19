@@ -101,3 +101,10 @@ func (c *Client) get(ctx context.Context, path string, v any) error {
 	}
 	return nil
 }
+
+// Disk returns the proxy's latest measurement of disk use.
+func (c *Client) Disk(ctx context.Context) (DiskAnswer, error) {
+	var answer DiskAnswer
+	err := c.get(ctx, "/v1/disk", &answer)
+	return answer, err
+}

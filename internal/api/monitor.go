@@ -675,3 +675,99 @@ func buildDatabases(now time.Time, name string, r historyRange, snap *snapshot.S
 	}
 	return answer
 }
+
+// --- GET /v1/monitor/disk ---
+
+// diskRanges are the ranges /v1/monitor/disk answers: measurements are kept
+// for 380 days, one every 30 minutes.
+var diskRanges = map[string]historyRange{
+	"7d":   {7 * 24 * time.Hour, 6 * time.Hour},
+	"30d":  {30 * 24 * time.Hour, 24 * time.Hour},
+	"90d":  {90 * 24 * time.Hour, 24 * time.Hour},
+	"380d": {380 * 24 * time.Hour, 7 * 24 * time.Hour},
+}
+
+type diskAnswer struct {
+	Range         string        `json:"range"`
+	From          time.Time     `json:"from"`
+	To            time.Time     `json:"to"`
+	BucketSeconds int           `json:"bucket_seconds"`
+	GeneratedAt   time.Time     `json:"generated_at"`
+	Now           *diskUseNow   `json:"now"` // nil until the proxy has measured
+	Totals        []diskPoint   `json:"totals"`
+	Projects      []projectDisk `json:"projects"`
+}
+
+type diskUseNow struct {
+	MeasuredAt time.Time        `json:"measured_at"`
+	Seconds    float64          `json:"seconds"` // how long measuring took
+	Totals     diskTotalsNow    `json:"totals"`
+	Projects   []projectDiskNow `json:"projects"`
+}
+
+type diskTotalsNow struct {
+	DataBytes       *int64 `json:"data_bytes"`
+	ImageBytes      int64  `json:"image_bytes"`
+	ContainerBytes  int64  `json:"container_bytes"`
+	VolumeBytes     int64  `json:"volume_bytes"`
+	BuildCacheBytes int64  `json:"build_cache_bytes"`
+}
+
+type projectDiskNow struct {
+	Project        string `json:"project"`
+	DataBytes      *int64 `json:"data_bytes"` // nil without a data folder
+	DataFiles      int64  `json:"data_files"`
+	DataUnreadable int64  `json:"data_unreadable"` // entries that couldn't be read: the size is short
+	ImageBytes     int64  `json:"image_bytes"`     // layers only its images have
+	ContainerBytes int64  `json:"container_bytes"`
+	VolumeBytes    int64  `json:"volume_bytes"`
+}
+
+type projectDisk struct {
+	Project string      `json:"project"`
+	Points  []diskPoint `json:"points"` // only buckets with a measurement
+}
+
+type diskPoint struct {
+	T               time.Time `json:"t"`
+	MeasuredAt      time.Time `json:"measured_at"` // the bucket's last measurement
+	DataBytes       *int64    `json:"data_bytes"`
+	ImageBytes      int64     `json:"image_bytes"`
+	ContainerBytes  int64     `json:"container_bytes"`
+	VolumeBytes     int64     `json:"volume_bytes"`
+	BuildCacheBytes *int64    `json:"build_cache_bytes,omitempty"` // totals only
+}
+
+func buildDisk(now time.Time, name string, r historyRange, snap *snapshot.Snapshot, points []store.DiskPoint) diskAnswer {
+	from, to := historySpan(now, r)
+	answer := diskAnswer{Range: name, From: from, To: to, BucketSeconds: int(r.bucket / time.Second), GeneratedAt: now.UTC(),
+		Totals: []diskPoint{}, Projects: []projectDisk{}}
+	if snap != nil && snap.Storage != nil {
+		u := snap.Storage
+		answer.Now = &diskUseNow{MeasuredAt: u.MeasuredAt.UTC(), Seconds: round(u.Seconds, 1), Projects: []projectDiskNow{},
+			Totals: diskTotalsNow{DataBytes: u.Totals.Data, ImageBytes: u.Totals.Images, ContainerBytes: u.Totals.Containers,
+				VolumeBytes: u.Totals.Volumes, BuildCacheBytes: u.Totals.BuildCache}}
+		for _, p := range u.Projects {
+			answer.Now.Projects = append(answer.Now.Projects, projectDiskNow{Project: p.Project, DataBytes: p.DataBytes,
+				DataFiles: p.DataFiles, DataUnreadable: p.DataUnreadable, ImageBytes: p.ImageBytes,
+				ContainerBytes: p.ContainerBytes, VolumeBytes: p.VolumeBytes})
+		}
+	}
+	for _, p := range points {
+		dp := diskPoint{T: p.Start, MeasuredAt: p.MeasuredAt, DataBytes: p.DataBytes, ImageBytes: p.ImageBytes,
+			ContainerBytes: p.ContainerBytes, VolumeBytes: p.VolumeBytes}
+		if p.Project == "" {
+			cache := p.BuildCacheBytes
+			dp.BuildCacheBytes = &cache
+			answer.Totals = append(answer.Totals, dp)
+			continue
+		}
+		n := len(answer.Projects)
+		if n == 0 || answer.Projects[n-1].Project != p.Project {
+			answer.Projects = append(answer.Projects, projectDisk{Project: p.Project, Points: []diskPoint{}})
+			n++
+		}
+		answer.Projects[n-1].Points = append(answer.Projects[n-1].Points, dp)
+	}
+	return answer
+}

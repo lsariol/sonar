@@ -316,6 +316,14 @@ func (c *CLI) host(ctx context.Context, args []string) error {
 	for _, n := range h.Network {
 		rows = append(rows, [2]string{"Network " + n.Name, fmt.Sprintf("%s in, %s out", rateOf(n.RxRate), rateOf(n.TxRate))})
 	}
+	if u := snap.Storage; u != nil {
+		data := "-"
+		if u.Totals.Data != nil {
+			data = size(uint64(*u.Totals.Data))
+		}
+		rows = append(rows, [2]string{"Stored", fmt.Sprintf("data folders %s, images %s, volumes %s, build cache %s (measured %s)",
+			data, size(uint64(u.Totals.Images)), size(uint64(u.Totals.Volumes)), size(uint64(u.Totals.BuildCache)), formatTime(u.MeasuredAt))})
+	}
 	if d := snap.Databases; d != nil {
 		rows = append(rows, [2]string{"sparkdb", fmt.Sprintf("%d of %d connections, %d databases", d.Connections, d.MaxConnections, len(d.Databases))})
 	}

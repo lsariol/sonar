@@ -82,3 +82,42 @@ type StatsError struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason"`
 }
+
+// DiskAnswer is the answer to GET /v1/disk: the proxy's latest measurement
+// of what each project keeps on disk. MeasuredAt is nil until the first
+// measurement ends.
+type DiskAnswer struct {
+	MeasuredAt  *time.Time      `json:"measured_at"`
+	Seconds     float64         `json:"seconds"` // how long it took
+	Folders     []FolderSize    `json:"folders"` // each data folder in /srv/server/storage
+	FolderError string          `json:"folder_error,omitempty"`
+	Projects    []ProjectDocker `json:"projects"` // Docker's figures per compose project
+	Totals      DockerTotals    `json:"totals"`
+	DockerError string          `json:"docker_error,omitempty"`
+}
+
+// FolderSize is one data folder: the space its files take, how many there
+// are, and how many entries couldn't be read (its total is short by them).
+type FolderSize struct {
+	Name       string `json:"name"`
+	Bytes      int64  `json:"bytes"`
+	Files      int64  `json:"files"`
+	Unreadable int64  `json:"unreadable"`
+}
+
+// ProjectDocker is what Docker stores for one compose project: the layers
+// only its images have, its containers' writable layers and its volumes.
+type ProjectDocker struct {
+	Project        string `json:"project"`
+	ImageBytes     int64  `json:"image_bytes"`
+	ContainerBytes int64  `json:"container_bytes"`
+	VolumeBytes    int64  `json:"volume_bytes"`
+}
+
+// DockerTotals is everything Docker stores, shared layers counted once.
+type DockerTotals struct {
+	Images     int64 `json:"images"`
+	Containers int64 `json:"containers"`
+	Volumes    int64 `json:"volumes"`
+	BuildCache int64 `json:"build_cache"`
+}
