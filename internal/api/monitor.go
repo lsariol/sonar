@@ -3,7 +3,9 @@ package api
 import (
 	"cmp"
 	"fmt"
+	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/lsariol/sonar/internal/snapshot"
@@ -768,6 +770,70 @@ func buildDisk(now time.Time, name string, r historyRange, snap *snapshot.Snapsh
 			n++
 		}
 		answer.Projects[n-1].Points = append(answer.Projects[n-1].Points, dp)
+	}
+	return answer
+}
+
+// --- GET /v1/monitor/traffic ---
+
+// trafficRanges are the ranges /v1/monitor/traffic answers: Cloudflare's
+// hours are kept for 380 days.
+var trafficRanges = map[string]historyRange{
+	"24h":  {24 * time.Hour, time.Hour},
+	"7d":   {7 * 24 * time.Hour, 6 * time.Hour},
+	"30d":  {30 * 24 * time.Hour, 24 * time.Hour},
+	"90d":  {90 * 24 * time.Hour, 24 * time.Hour},
+	"380d": {380 * 24 * time.Hour, 7 * 24 * time.Hour},
+}
+
+type trafficAnswer struct {
+	Range         string        `json:"range"`
+	From          time.Time     `json:"from"`
+	To            time.Time     `json:"to"`
+	BucketSeconds int           `json:"bucket_seconds"`
+	GeneratedAt   time.Time     `json:"generated_at"`
+	Hosts         []hostTraffic `json:"hosts"`
+}
+
+type hostTraffic struct {
+	Host      string         `json:"host"`
+	Project   *string        `json:"project"` // from the public-url labels; nil when none names this host
+	Requests  int64          `json:"requests"`
+	Errors5xx int64          `json:"errors_5xx"`
+	Bytes     int64          `json:"bytes"`
+	Points    []trafficPoint `json:"points"` // only buckets with traffic
+}
+
+type trafficPoint struct {
+	T         time.Time `json:"t"`
+	Requests  int64     `json:"requests"`
+	Errors5xx int64     `json:"errors_5xx"`
+	Bytes     int64     `json:"bytes"`
+}
+
+func buildTraffic(now time.Time, name string, r historyRange, snap *snapshot.Snapshot, buckets []store.TrafficBucket) trafficAnswer {
+	from, to := historySpan(now, r)
+	answer := trafficAnswer{Range: name, From: from, To: to, BucketSeconds: int(r.bucket / time.Second), GeneratedAt: now.UTC(),
+		Hosts: []hostTraffic{}}
+	projectOf := make(map[string]string)
+	if snap != nil {
+		for _, c := range snap.Checks {
+			if u, err := url.Parse(c.URL); err == nil && c.Project != "" {
+				projectOf[strings.ToLower(u.Hostname())] = c.Project
+			}
+		}
+	}
+	for _, b := range buckets {
+		n := len(answer.Hosts)
+		if n == 0 || answer.Hosts[n-1].Host != b.Host {
+			answer.Hosts = append(answer.Hosts, hostTraffic{Host: b.Host, Project: optString(projectOf[b.Host]), Points: []trafficPoint{}})
+			n++
+		}
+		h := &answer.Hosts[n-1]
+		h.Requests += b.Requests
+		h.Errors5xx += b.Errors
+		h.Bytes += b.Bytes
+		h.Points = append(h.Points, trafficPoint{T: b.Start, Requests: b.Requests, Errors5xx: b.Errors, Bytes: b.Bytes})
 	}
 	return answer
 }

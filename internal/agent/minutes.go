@@ -28,6 +28,7 @@ type bucket struct {
 	network    map[string]*counters // bytes each host interface moved
 	databases  []store.DatabaseRow  // the minute's last reading of sparkdb
 	disk       *snapshot.DiskUse    // a new measurement of disk use
+	traffic    []store.TrafficHour  // hours read from Cloudflare
 	updates    []store.Update       // updates that ended during the minute
 }
 
@@ -306,6 +307,7 @@ func (b *bucket) minute() store.Minute {
 	}
 	slices.SortFunc(m.Network, func(x, y store.NetMinute) int { return cmp.Compare(x.Interface, y.Interface) })
 	m.Disk = diskMeasurement(b.disk)
+	m.Traffic = b.traffic
 	for _, d := range b.databases {
 		m.Databases = append(m.Databases, store.DatabaseMinute{Database: d.Name, Connections: d.Connections, Active: d.Active,
 			SizeBytes: d.SizeBytes})

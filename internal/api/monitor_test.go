@@ -14,7 +14,7 @@ import (
 )
 
 var monitorPaths = []string{"/v1/monitor/status", "/v1/monitor/projects", "/v1/monitor/conditions",
-	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases", "/v1/monitor/disk"}
+	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases", "/v1/monitor/disk", "/v1/monitor/traffic"}
 
 // TestMonitorNeedsScope: only a token with monitor:read gets owner detail.
 func TestMonitorNeedsScope(t *testing.T) {
@@ -302,5 +302,28 @@ func TestDiskGolden(t *testing.T) {
 	golden(t, "monitor-disk.json", body)
 	if status, _, _ := do(t, s, "GET", "/v1/monitor/disk?range=24h", "Bearer "+vistaToken); status != http.StatusBadRequest {
 		t.Errorf("range=24h: %d, want 400 (disk is measured every 30 minutes)", status)
+	}
+}
+
+func TestTrafficGolden(t *testing.T) {
+	day := now.Truncate(24 * time.Hour)
+	r := &fakeReader{traffic: []store.TrafficBucket{
+		{Host: "dibs.mobasity.com", Start: day, Requests: 40, Bytes: 1000},
+		{Host: "plop.mobasity.com", Start: day.Add(-24 * time.Hour), Requests: 900, Errors: 2, Bytes: 5 << 20},
+		{Host: "plop.mobasity.com", Start: day, Requests: 300, Errors: 1, Bytes: 2 << 20},
+	}}
+	s := newTestServer(t, r, &fakeSnapshots{snap: monitorSnapshot(now)})
+	status, _, body := do(t, s, "GET", "/v1/monitor/traffic?range=30d", "Bearer "+vistaToken)
+	if status != http.StatusOK {
+		t.Fatalf("%d: %s", status, body)
+	}
+	golden(t, "monitor-traffic.json", body)
+	var answer trafficAnswer
+	json.Unmarshal(body, &answer)
+	if len(answer.Hosts) != 2 || answer.Hosts[0].Project != nil || *answer.Hosts[1].Project != "plop" || answer.Hosts[1].Requests != 1200 {
+		t.Errorf("hosts = %+v", answer.Hosts)
+	}
+	if status, _, _ := do(t, s, "GET", "/v1/monitor/traffic?range=1h", "Bearer "+vistaToken); status != http.StatusBadRequest {
+		t.Errorf("range=1h: %d, want 400 (Cloudflare's counts are hourly)", status)
 	}
 }

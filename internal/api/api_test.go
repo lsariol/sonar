@@ -47,6 +47,7 @@ type fakeReader struct {
 	network        []store.NetBucket
 	databases      []store.DatabaseBucket
 	disk           []store.DiskPoint
+	traffic        []store.TrafficBucket
 
 	dayCalls  atomic.Int32
 	histCalls atomic.Int32
@@ -116,6 +117,10 @@ func (f *fakeReader) DatabaseHistory(context.Context, time.Time, time.Time, time
 
 func (f *fakeReader) DiskHistory(context.Context, time.Time, time.Time, time.Duration) ([]store.DiskPoint, error) {
 	return f.disk, f.err
+}
+
+func (f *fakeReader) TrafficHistory(context.Context, time.Time, time.Time, time.Duration) ([]store.TrafficBucket, error) {
+	return f.traffic, f.err
 }
 
 func (f *fakeReader) CheckSchemaVersion(context.Context) error { return nil }

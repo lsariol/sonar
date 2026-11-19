@@ -90,6 +90,7 @@ func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 		{"updates", "started_at", dayCutoff},
 		{"project_disk", "measured_at", dayCutoff},
 		{"disk_totals", "measured_at", dayCutoff},
+		{"traffic_hours", "hour", dayCutoff},
 	}
 
 	var total int64

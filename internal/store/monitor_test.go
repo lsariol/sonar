@@ -207,3 +207,24 @@ func TestDiskHistory(t *testing.T) {
 		t.Errorf("lys = %+v, plop = %+v", lys, plop)
 	}
 }
+
+// TestTraffic keeps the latest count of each hour and adds hours into buckets.
+func TestTraffic(t *testing.T) {
+	app := open(t)
+	ctx := context.Background()
+	hour := time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)
+	write := func(hours ...TrafficHour) {
+		t.Helper()
+		if err := app.WriteMinute(ctx, Minute{Start: time.Now().UTC().Truncate(time.Minute), Traffic: hours}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(TrafficHour{Host: "plop.mobasity.com", Hour: hour, Requests: 10, Bytes: 100},
+		TrafficHour{Host: "plop.mobasity.com", Hour: hour.Add(time.Hour), Requests: 5, Errors: 1, Bytes: 50})
+	write(TrafficHour{Host: "plop.mobasity.com", Hour: hour, Requests: 12, Bytes: 120}) // Cloudflare's later count
+
+	got, err := app.TrafficHistory(ctx, hour, hour.Add(24*time.Hour), 24*time.Hour)
+	if err != nil || len(got) != 1 || got[0].Requests != 17 || got[0].Errors != 1 || got[0].Bytes != 170 {
+		t.Errorf("traffic = %+v, %v; want 17 requests, 1 error, 170 bytes", got, err)
+	}
+}

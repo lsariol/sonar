@@ -1,0 +1,45 @@
+{
+  "range": "30d",
+  "from": "2026-09-22T00:00:00Z",
+  "to": "2026-10-22T00:00:00Z",
+  "bucket_seconds": 86400,
+  "generated_at": "2026-10-21T15:04:05Z",
+  "hosts": [
+    {
+      "host": "dibs.mobasity.com",
+      "project": null,
+      "requests": 40,
+      "errors_5xx": 0,
+      "bytes": 1000,
+      "points": [
+        {
+          "t": "2026-10-21T00:00:00Z",
+          "requests": 40,
+          "errors_5xx": 0,
+          "bytes": 1000
+        }
+      ]
+    },
+    {
+      "host": "plop.mobasity.com",
+      "project": "plop",
+      "requests": 1200,
+      "errors_5xx": 3,
+      "bytes": 7340032,
+      "points": [
+        {
+          "t": "2026-10-20T00:00:00Z",
+          "requests": 900,
+          "errors_5xx": 2,
+          "bytes": 5242880
+        },
+        {
+          "t": "2026-10-21T00:00:00Z",
+          "requests": 300,
+          "errors_5xx": 1,
+          "bytes": 2097152
+        }
+      ]
+    }
+  ]
+}

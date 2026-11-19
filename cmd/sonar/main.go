@@ -21,6 +21,7 @@ import (
 	"github.com/lsariol/sonar/internal/api"
 	"github.com/lsariol/sonar/internal/checks"
 	"github.com/lsariol/sonar/internal/cli"
+	"github.com/lsariol/sonar/internal/cloudflare"
 	"github.com/lsariol/sonar/internal/config"
 	"github.com/lsariol/sonar/internal/containers"
 	"github.com/lsariol/sonar/internal/host"
@@ -104,6 +105,10 @@ func runAgent() {
 	if err != nil {
 		fail(log, err)
 	}
+	cloudflareToken, err := config.Secret(os.Getenv, "SONAR_CLOUDFLARE_TOKEN")
+	if err != nil {
+		fail(log, err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -115,6 +120,7 @@ func runAgent() {
 		NetDevPath: host.NetDevPath,
 		Docker:     containers.NewClient(containers.Socket),
 		Disk:       containers.NewClient(containers.Socket),
+		Traffic:    cloudflare.New(cloudflare.API, cloudflareToken),
 		Checker:    checks.New(cfg.Version),
 		Log:        log,
 		OpenStore: func(ctx context.Context) (agent.Store, error) {

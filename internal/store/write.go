@@ -22,6 +22,14 @@ type Minute struct {
 	Network    []NetMinute
 	Databases  []DatabaseMinute
 	Disk       *DiskMeasurement // a new measurement of disk use, at most one a minute
+	Traffic    []TrafficHour    // hours read from Cloudflare, possibly read before
+}
+
+// TrafficHour is one hostname's traffic in one hour, as Cloudflare counts it.
+type TrafficHour struct {
+	Host                    string
+	Hour                    time.Time
+	Requests, Errors, Bytes int64
 }
 
 // DiskMeasurement is one measurement of what each project keeps on disk.
@@ -202,6 +210,13 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 			ON CONFLICT (database, minute) DO UPDATE SET
 				connections = EXCLUDED.connections, active = EXCLUDED.active, size_bytes = EXCLUDED.size_bytes`,
 			start, d.Database, d.Connections, d.Active, d.SizeBytes)
+	}
+	for _, t := range m.Traffic {
+		b.Queue(`
+			INSERT INTO sonar.traffic_hours (host, hour, requests, errors_5xx, bytes) VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (host, hour) DO UPDATE SET
+				requests = EXCLUDED.requests, errors_5xx = EXCLUDED.errors_5xx, bytes = EXCLUDED.bytes`,
+			t.Host, t.Hour.UTC(), t.Requests, t.Errors, t.Bytes)
 	}
 	if d := m.Disk; d != nil {
 		at := d.MeasuredAt.UTC()
