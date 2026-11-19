@@ -111,15 +111,19 @@ func Service(cs []containers.Container, now time.Time) (s State, counted bool) {
 	return s, counted
 }
 
-// Check is a check's state: down after 2 failures in a row, up again on the first success.
-func Check(prev State, failuresInARow int, slow bool) State {
+// Check is a check's state: down after 2 failures in a row, degraded after 2 slow answers, up on the first ok.
+func Check(prev State, failuresInARow, slowInARow int) State {
 	switch {
 	case failuresInARow >= 2:
 		return Down
 	case failuresInARow == 1:
 		return prev
-	case slow:
+	case slowInARow >= 2:
 		return Degraded
+	case slowInARow == 1 && prev == Down:
+		return Degraded // it answers again, if slowly
+	case slowInARow == 1:
+		return prev
 	}
 	return Up
 }

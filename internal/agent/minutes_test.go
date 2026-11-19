@@ -62,7 +62,7 @@ func aMinute(t *testing.T, a *Agent, clk *clock, d *fakeDocker, from time.Time, 
 func TestMinuteTotals(t *testing.T) {
 	url := "https://plop.mobasity.com"
 	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", url)}}
-	c := &fakeChecker{queue: map[string][]checks.Outcome{url: {checks.OK, checks.Slow}}}
+	c := &fakeChecker{queue: map[string][]checks.Outcome{url: {checks.Slow, checks.Slow}}}
 	a, clk := newTestAgent(t, d, c)
 	minuteStart := start.Truncate(time.Minute)
 	aMinute(t, a, clk, d, minuteStart, 0)
@@ -103,15 +103,36 @@ func TestMinuteTotals(t *testing.T) {
 		t.Errorf("network in during the minute = %d, want 10000 (0 → 10000)", s.NetRx)
 	}
 
-	if len(m.Checks) != 1 || m.Checks[0].Attempts != 2 || m.Checks[0].Slow != 1 || m.Checks[0].State != state.Degraded ||
+	if len(m.Checks) != 1 || m.Checks[0].Attempts != 2 || m.Checks[0].Slow != 2 || m.Checks[0].State != state.Degraded ||
 		m.Checks[0].LatencyAvgMs == nil || *m.Checks[0].LatencyAvgMs != 40 {
 		t.Errorf("check minute = %+v", m.Checks)
 	}
 	if len(m.Projects) != 1 || m.Projects[0].State != state.Degraded || m.Projects[0].Evidence != state.Checked {
-		t.Errorf("project minute = %+v; the slow check made it degraded", m.Projects)
+		t.Errorf("project minute = %+v; two slow answers in a row made it degraded", m.Projects)
 	}
 	if len(m.Containers) != 1 || m.Containers[0].Project != "plop" {
 		t.Errorf("containers = %+v", m.Containers)
+	}
+}
+
+// TestOneSlowAnswer: a single slow answer is counted but leaves the project up.
+func TestOneSlowAnswer(t *testing.T) {
+	url := "https://plop.mobasity.com"
+	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", url)}}
+	c := &fakeChecker{queue: map[string][]checks.Outcome{url: {checks.OK, checks.Slow}}}
+	a, clk := newTestAgent(t, d, c)
+	minuteStart := start.Truncate(time.Minute)
+	aMinute(t, a, clk, d, minuteStart, 0)
+	a.closeMinutes(minuteStart.Add(time.Minute + flushDelay))
+	if len(a.pending) != 1 {
+		t.Fatalf("%d minutes pending, want 1", len(a.pending))
+	}
+	m := a.pending[0]
+	if len(m.Checks) != 1 || m.Checks[0].Slow != 1 || m.Checks[0].State != state.Up {
+		t.Errorf("check minute = %+v; want one slow answer, still up", m.Checks)
+	}
+	if len(m.Projects) != 1 || m.Projects[0].State != state.Up {
+		t.Errorf("project minute = %+v; want up", m.Projects)
 	}
 }
 

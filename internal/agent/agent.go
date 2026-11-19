@@ -157,6 +157,7 @@ type target struct {
 type checkStatus struct {
 	state    state.State
 	failures int // in a row
+	slow     int // in a row
 	last     checks.Result
 }
 
@@ -528,16 +529,19 @@ func (a *Agent) runChecks(ctx context.Context) {
 		st.last = r
 		if r.Refused {
 			// A label pointing somewhere Sonar won't go says nothing about the service; attention reports it.
-			st.state, st.failures = state.Unknown, 0
+			st.state, st.failures, st.slow = state.Unknown, 0, 0
 			continue
 		}
-		if r.Outcome == checks.Failed {
-			st.failures++
-		} else {
-			st.failures = 0
+		switch r.Outcome {
+		case checks.Failed:
+			st.failures, st.slow = st.failures+1, 0
+		case checks.Slow:
+			st.failures, st.slow = 0, st.slow+1
+		default:
+			st.failures, st.slow = 0, 0
 		}
 		prev := st.state
-		st.state = state.Check(st.state, st.failures, r.Outcome == checks.Slow)
+		st.state = state.Check(st.state, st.failures, st.slow)
 		a.addCheckMinute(a.opts.Now(), t, r, prev, st.state)
 	}
 	a.record(checksCollector, nil)

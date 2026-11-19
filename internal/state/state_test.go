@@ -68,23 +68,28 @@ func TestService(t *testing.T) {
 
 func TestCheck(t *testing.T) {
 	cases := []struct {
-		prev     State
-		failures int
-		slow     bool
-		want     State
+		prev           State
+		failures, slow int
+		want           State
 	}{
-		{Unknown, 0, false, Up},
-		{Down, 0, false, Up},
-		{Up, 0, true, Degraded},
-		{Up, 1, false, Up},
-		{Degraded, 1, false, Degraded},
-		{Unknown, 1, false, Unknown},
-		{Up, 2, false, Down},
-		{Up, 7, false, Down},
+		{Unknown, 0, 0, Up},
+		{Down, 0, 0, Up},
+		{Degraded, 0, 0, Up},
+		{Up, 0, 1, Up},
+		{Unknown, 0, 1, Unknown},
+		{Degraded, 0, 1, Degraded},
+		{Down, 0, 1, Degraded},
+		{Up, 0, 2, Degraded},
+		{Up, 0, 9, Degraded},
+		{Up, 1, 0, Up},
+		{Degraded, 1, 0, Degraded},
+		{Unknown, 1, 0, Unknown},
+		{Up, 2, 0, Down},
+		{Up, 7, 0, Down},
 	}
 	for _, tc := range cases {
 		if got := Check(tc.prev, tc.failures, tc.slow); got != tc.want {
-			t.Errorf("Check(%v, %d, %v) = %v, want %v", tc.prev, tc.failures, tc.slow, got, tc.want)
+			t.Errorf("Check(%v, %d failed, %d slow) = %v, want %v", tc.prev, tc.failures, tc.slow, got, tc.want)
 		}
 	}
 }
