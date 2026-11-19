@@ -89,7 +89,9 @@ func (s *Server) Serve(ctx context.Context, path string) error {
 		srv.Shutdown(shutdown)
 	}()
 
-	go s.disk.run(ctx, diskFirstAfter)
+	if s.disk != nil {
+		go s.disk.run(ctx, diskFirstAfter)
+	}
 	s.log.Info("proxy listening", "socket", path)
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("proxy: %w", err)
@@ -182,6 +184,10 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 // diskUse is the latest measurement; measuring happens in the background,
 // so asking costs nothing.
 func (s *Server) diskUse(w http.ResponseWriter, r *http.Request) {
+	if s.disk == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "this proxy doesn't measure disk use"})
+		return
+	}
 	writeJSON(w, http.StatusOK, s.disk.latest())
 }
 
