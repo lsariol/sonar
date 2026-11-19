@@ -57,12 +57,13 @@ func (e usageError) Error() string {
 // Command groups, in the order `help` shows them; empty groups are left out.
 const (
 	groupOverview = "Overview"
+	groupUsage    = "Usage"
 	groupChecks   = "Checks"
 	groupHistory  = "History"
 	groupSetup    = "Setup"
 )
 
-var groupOrder = []string{groupOverview, groupChecks, groupHistory, groupSetup}
+var groupOrder = []string{groupOverview, groupUsage, groupChecks, groupHistory, groupSetup}
 
 // commandTable lists every command.
 func commandTable() []command {
@@ -109,6 +110,51 @@ func commandTable() []command {
 			run: (*CLI).host,
 		},
 		{
+			names:   []string{"databases", "db"},
+			group:   groupUsage,
+			summary: "Each database on sparkdb: size and connections",
+			usages: []usage{
+				{"databases", "List every database on sparkdb, largest first: the project it belongs to, its size, its client connections, how many are running a query, and its oldest open transaction. Then how many of sparkdb's connections are in use; every project shares them."},
+			},
+			run: (*CLI).databases,
+		},
+		{
+			names:   []string{"disk"},
+			group:   groupUsage,
+			summary: "What each project keeps on disk",
+			usages: []usage{
+				{"disk", "List what each project keeps on disk, largest first: its data folder, the image layers only it uses, its containers' writable layers and its volumes. Then the totals, build cache included. sonar-proxy measures every 30 minutes; a folder it couldn't fully read is marked short."},
+			},
+			examples: []example{{"disk", "what's filling the disk?"}},
+			run:      (*CLI).disk,
+		},
+		{
+			names:    []string{"traffic"},
+			group:    groupUsage,
+			synopsis: "[--days N]",
+			summary:  "Each site's requests, 5xx answers and bytes",
+			usages: []usage{
+				{"traffic", "List every site's traffic over the last 7 days, busiest first, as Cloudflare counts it (visitors only): requests, answers with a 5xx status, bytes sent, and the project it belongs to."},
+			},
+			flags:    []flag{{"--days N", "How many days back, from 1 to 380. 7 unless given."}},
+			examples: []example{{"traffic", "this week"}, {"traffic --days 1", "the last 24 hours"}},
+			run:      (*CLI).traffic,
+		},
+		{
+			names:    []string{"apps"},
+			group:    groupUsage,
+			synopsis: "[project] [--days N]",
+			summary:  "The apps' usage counters and feature checks",
+			usages: []usage{
+				{"apps", "Show what the apps report about themselves: each usage counter today (UTC) and over the last 7 days, and each feature check, whether it works, since when, and its message. Apps whose report couldn't be read are listed."},
+				{"apps <project>", "Only that project's report."},
+			},
+			flags:    []flag{{"--days N", "How many days the totals cover, from 1 to 380. 7 unless given."}},
+			examples: []example{{"apps", "every app"}, {"apps lys --days 30", "Lys over a month"}},
+			run:      (*CLI).apps,
+			complete: (*CLI).projectNames,
+		},
+		{
 			names:   []string{"checks"},
 			group:   groupChecks,
 			summary: "Public addresses checked from outside",
@@ -142,6 +188,19 @@ func commandTable() []command {
 			flags:    []flag{{"--days N", "How many days back, from 1 to 380. 7 unless given."}},
 			examples: []example{{"updates", "this week's deploys"}, {"updates plop --days 30", "plop's last month"}},
 			run:      (*CLI).updates,
+			complete: (*CLI).projectNames,
+		},
+		{
+			names:    []string{"states"},
+			group:    groupHistory,
+			synopsis: "<project> [--days N]",
+			summary:  "When a project's state changed, and why",
+			usages: []usage{
+				{"states <project>", "List a project's state changes over the last 7 days, oldest first: each stretch in one state, how long it lasted, and when it wasn't operational, which services weren't up and which outside checks failed, with the last error. Gaps of more than 5 minutes without data are unknown."},
+			},
+			flags:    []flag{{"--days N", "How many days back, from 1 to 30 (the minutes kept). 7 unless given."}},
+			examples: []example{{"states plop", "what happened to plop this week?"}},
+			run:      (*CLI).states,
 			complete: (*CLI).projectNames,
 		},
 		{

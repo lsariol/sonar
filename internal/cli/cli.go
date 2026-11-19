@@ -35,6 +35,11 @@ type DB interface {
 	UpdatesBetween(ctx context.Context, from, to time.Time) ([]store.Update, error)
 	Migrations(ctx context.Context) ([]store.Migration, error)
 	CheckSchemaVersion(ctx context.Context) error
+	TrafficHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]store.TrafficBucket, error)
+	AppCounterDays(ctx context.Context, from, to time.Time) ([]store.AppCounterDay, error)
+	StateSpans(ctx context.Context, from, to time.Time) ([]store.Span, error)
+	ServiceTroubles(ctx context.Context, from, to time.Time) ([]store.ServiceTrouble, error)
+	CheckTroubles(ctx context.Context, from, to time.Time) ([]store.CheckTrouble, error)
 }
 
 // CLI runs Sonar's commands, one at a time or as a shell.

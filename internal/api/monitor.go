@@ -469,26 +469,26 @@ type statesAnswer struct {
 
 type projectStates struct {
 	Project string      `json:"project"`
-	Spans   []stateSpan `json:"spans"`
+	Spans   []StateSpan `json:"spans"`
 }
 
-// stateSpan is a stretch in one state; unknown spans are gaps longer than mergeGap.
-type stateSpan struct {
+// StateSpan is a stretch in one state; unknown spans are gaps longer than mergeGap.
+type StateSpan struct {
 	State           string       `json:"state"`
 	Start           time.Time    `json:"start"`
 	End             time.Time    `json:"end"`
 	ObservedMinutes int          `json:"observed_minutes"`
-	Services        []spanCause  `json:"services"` // services that weren't up during it
-	Checks          []checkCause `json:"checks"`   // outside checks that failed or were slow
+	Services        []SpanCause  `json:"services"` // services that weren't up during it
+	Checks          []CheckCause `json:"checks"`   // outside checks that failed or were slow
 }
 
-type spanCause struct {
+type SpanCause struct {
 	Service string `json:"service"`
 	State   string `json:"state"` // the worst seen
 	Minutes int    `json:"minutes"`
 }
 
-type checkCause struct {
+type CheckCause struct {
 	Service   string  `json:"service"`
 	URL       string  `json:"url"`
 	State     string  `json:"state"`
@@ -509,7 +509,7 @@ func buildStates(now time.Time, name string, length time.Duration, spans []store
 		}
 		n := len(answer.Projects)
 		if n == 0 || answer.Projects[n-1].Project != sp.Project {
-			answer.Projects = append(answer.Projects, projectStates{Project: sp.Project, Spans: []stateSpan{}})
+			answer.Projects = append(answer.Projects, projectStates{Project: sp.Project, Spans: []StateSpan{}})
 			n++
 		}
 		ps := &answer.Projects[n-1]
@@ -522,17 +522,17 @@ func buildStates(now time.Time, name string, length time.Duration, spans []store
 				continue
 			}
 			if gap > mergeGap {
-				ps.Spans = append(ps.Spans, stateSpan{State: "unknown", Start: last.End, End: sp.Start})
+				ps.Spans = append(ps.Spans, StateSpan{State: "unknown", Start: last.End, End: sp.Start})
 			}
 		}
-		ps.Spans = append(ps.Spans, stateSpan{State: st, Start: sp.Start, End: sp.End, ObservedMinutes: sp.Minutes})
+		ps.Spans = append(ps.Spans, StateSpan{State: st, Start: sp.Start, End: sp.End, ObservedMinutes: sp.Minutes})
 	}
 
 	for i := range answer.Projects {
 		ps := &answer.Projects[i]
 		for j := range ps.Spans {
 			sp := &ps.Spans[j]
-			sp.Services, sp.Checks = []spanCause{}, []checkCause{}
+			sp.Services, sp.Checks = []SpanCause{}, []CheckCause{}
 			if sp.State == "operational" || sp.State == "unknown" {
 				continue
 			}
@@ -545,11 +545,11 @@ func buildStates(now time.Time, name string, length time.Duration, spans []store
 				}
 			}
 			for svc, st := range worst {
-				sp.Services = append(sp.Services, spanCause{Service: svc, State: publicState(st), Minutes: minutes[svc]})
+				sp.Services = append(sp.Services, SpanCause{Service: svc, State: publicState(st), Minutes: minutes[svc]})
 			}
-			slices.SortFunc(sp.Services, func(x, y spanCause) int { return cmp.Compare(x.Service, y.Service) })
+			slices.SortFunc(sp.Services, func(x, y SpanCause) int { return cmp.Compare(x.Service, y.Service) })
 
-			byCheck := make(map[[2]string]*checkCause)
+			byCheck := make(map[[2]string]*CheckCause)
 			worstCheck := make(map[[2]string]state.State)
 			var order [][2]string
 			for _, t := range checks {
@@ -559,7 +559,7 @@ func buildStates(now time.Time, name string, length time.Duration, spans []store
 				k := [2]string{t.Service, t.URL}
 				c := byCheck[k]
 				if c == nil {
-					c = &checkCause{Service: t.Service, URL: t.URL, State: publicState(state.Unknown)}
+					c = &CheckCause{Service: t.Service, URL: t.URL, State: publicState(state.Unknown)}
 					byCheck[k] = c
 					order = append(order, k)
 				}
@@ -579,6 +579,16 @@ func buildStates(now time.Time, name string, length time.Duration, spans []store
 		}
 	}
 	return answer
+}
+
+// ProjectSpans is one project's state spans over the length before now, as /v1/monitor/states has them.
+func ProjectSpans(now time.Time, length time.Duration, project string, spans []store.Span, services []store.ServiceTrouble, checks []store.CheckTrouble) []StateSpan {
+	for _, p := range buildStates(now, "", length, spans, services, checks).Projects {
+		if p.Project == project {
+			return p.Spans
+		}
+	}
+	return []StateSpan{}
 }
 
 // statesRanges are /v1/monitor/states's ranges; the minutes are kept 30 days.

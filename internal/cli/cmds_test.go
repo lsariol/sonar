@@ -30,6 +30,28 @@ type fakeDB struct {
 	migrations []store.Migration
 	updates    []store.Update
 	schemaErr  error
+
+	traffic        []store.TrafficBucket
+	appDays        []store.AppCounterDay
+	spans          []store.Span
+	serviceTrouble []store.ServiceTrouble
+	checkTrouble   []store.CheckTrouble
+}
+
+func (f *fakeDB) TrafficHistory(context.Context, time.Time, time.Time, time.Duration) ([]store.TrafficBucket, error) {
+	return f.traffic, nil
+}
+func (f *fakeDB) AppCounterDays(context.Context, time.Time, time.Time) ([]store.AppCounterDay, error) {
+	return f.appDays, nil
+}
+func (f *fakeDB) StateSpans(context.Context, time.Time, time.Time) ([]store.Span, error) {
+	return f.spans, nil
+}
+func (f *fakeDB) ServiceTroubles(context.Context, time.Time, time.Time) ([]store.ServiceTrouble, error) {
+	return f.serviceTrouble, nil
+}
+func (f *fakeDB) CheckTroubles(context.Context, time.Time, time.Time) ([]store.CheckTrouble, error) {
+	return f.checkTrouble, nil
 }
 
 func (f *fakeDB) ProjectDays(context.Context, time.Time, time.Time) ([]store.DayCounts, error) {
