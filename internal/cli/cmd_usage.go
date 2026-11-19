@@ -331,6 +331,13 @@ func (c *CLI) states(ctx context.Context, args []string) error {
 			if ch.Failures > 0 {
 				w += fmt.Sprintf(", %d failed", ch.Failures)
 			}
+			if ch.Slow > 0 {
+				w += fmt.Sprintf(", %d slow", ch.Slow)
+			}
+			if s := ch.Slowest; s != nil {
+				phase, ms := s.Mostly()
+				w += fmt.Sprintf(", slowest %s (%s %s)", seconds(s.Ms), seconds(ms), phase)
+			}
 			if ch.LastError != nil {
 				w += ": " + *ch.LastError
 			}

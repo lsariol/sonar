@@ -99,7 +99,7 @@ Every `/v1/` request needs `Authorization: Bearer <token>`. Each consumer's scop
 | `GET /v1/monitor/status?days=90` | `monitor:read` | `/v1/status` with every project |
 | `GET /v1/monitor/projects` | `monitor:read` | Every project now: its group, since when it's in its state, its services, containers and checks |
 | `GET /v1/monitor/conditions` | `monitor:read` | Spark's own conditions and each collector's state; answers without the database |
-| `GET /v1/monitor/states?range=7d` | `monitor:read` | Each project's state changes, with the services and checks that weren't up |
+| `GET /v1/monitor/states?range=7d` | `monitor:read` | Each project's state changes, with the services and checks that weren't up, and where a slow check's time went |
 | `GET /v1/monitor/host?range=24h` | `monitor:read` | The host now and over time: CPU, memory, swap, load, disk, network |
 | `GET /v1/monitor/usage?range=24h&project=` | `monitor:read` | Each service's CPU, memory, network and disk I/O over time |
 | `GET /v1/monitor/databases?range=24h` | `monitor:read` | Each database's connections and size |

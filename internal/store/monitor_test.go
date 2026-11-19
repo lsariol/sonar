@@ -31,6 +31,9 @@ func TestMonitorReads(t *testing.T) {
 			st = state.Down
 			m.Services[0].State = state.Down
 			m.Checks[0].Failures, m.Checks[0].State, m.Checks[0].LastError = 2, state.Down, "HTTP 502 Bad Gateway"
+			if n == 11 {
+				m.Checks[0].Phases = &CheckPhases{DNSMs: 1, ConnectMs: 2400, TLSMs: 90, WaitMs: 40, ReadMs: 5}
+			}
 		} else {
 			m.Checks[0].Slow, m.Checks[0].State = 0, state.Up
 		}
@@ -83,6 +86,10 @@ func TestMonitorReads(t *testing.T) {
 	checks, err := reader.CheckTroubles(ctx, base, end)
 	if err != nil || len(checks) != 2 || checks[1].LastError != "HTTP 502 Bad Gateway" || checks[1].Failures != 2 {
 		t.Errorf("check troubles = %+v, %v; want two failed minutes with their error", checks, err)
+	}
+	if len(checks) == 2 && (checks[0].Phases != nil || checks[1].Phases == nil || checks[1].Phases.ConnectMs != 2400 ||
+		checks[1].LatencyMaxMs == nil) {
+		t.Errorf("check phases = %+v then %+v; want none, then the slowest answer's", checks[0].Phases, checks[1].Phases)
 	}
 
 	usage, err := reader.ServiceUsage(ctx, base, end, 5*time.Minute, "plop")

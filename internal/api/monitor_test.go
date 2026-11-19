@@ -209,6 +209,7 @@ func TestStates(t *testing.T) {
 			{Project: "plop", State: state.Down, Start: m(60), End: m(65), Minutes: 5},
 			{Project: "plop", State: state.Up, Start: m(65), End: m(100), Minutes: 35},
 			{Project: "plop", State: state.Up, Start: m(120), End: m(180), Minutes: 60}, // 20-minute gap: unknown
+			{Project: "rill-web", State: state.Degraded, Start: m(40), End: m(42), Minutes: 2},
 			{Project: "sparkdb", State: state.Updating, Start: m(10), End: m(11), Minutes: 1},
 		},
 		serviceTrouble: []store.ServiceTrouble{
@@ -221,6 +222,12 @@ func TestStates(t *testing.T) {
 		checkTrouble: []store.CheckTrouble{
 			{Project: "plop", Service: "plop", URL: "https://plop.mobasity.com", Minute: m(60), State: state.Up, Failures: 1, LastError: "HTTP 502 Bad Gateway"},
 			{Project: "plop", Service: "plop", URL: "https://plop.mobasity.com", Minute: m(61), State: state.Down, Failures: 2, LastError: "timed out after 5s"},
+			{Project: "rill-web", Service: "web", URL: "https://rill.mobasity.com", Minute: m(39), State: state.Up, Slow: 1,
+				LatencyMaxMs: ptrTo(3900), Phases: &store.CheckPhases{DNSMs: 2, ConnectMs: 3800, TLSMs: 60, WaitMs: 30, ReadMs: 8}}, // before the span
+			{Project: "rill-web", Service: "web", URL: "https://rill.mobasity.com", Minute: m(40), State: state.Degraded, Slow: 2,
+				LatencyMaxMs: ptrTo(2600), Phases: &store.CheckPhases{DNSMs: 2, ConnectMs: 2410, TLSMs: 120, WaitMs: 61, ReadMs: 7}},
+			{Project: "rill-web", Service: "web", URL: "https://rill.mobasity.com", Minute: m(41), State: state.Degraded, Slow: 1,
+				LatencyMaxMs: ptrTo(2100), Phases: &store.CheckPhases{DNSMs: 1, ConnectMs: 1950, TLSMs: 90, WaitMs: 52, ReadMs: 7}},
 		},
 	}
 	s := newTestServer(t, r, &fakeSnapshots{snap: monitorSnapshot(now)})
@@ -243,6 +250,10 @@ func TestStates(t *testing.T) {
 	if len(down.Services) != 2 || down.Services[0].Minutes != 2 || down.Services[0].State != "down" ||
 		len(down.Checks) != 1 || down.Checks[0].Failures != 3 || *down.Checks[0].LastError != "timed out after 5s" {
 		t.Errorf("the outage's causes = %+v %+v", down.Services, down.Checks)
+	}
+	slow := answer.Projects[1].Spans[0].Checks
+	if len(slow) != 1 || slow[0].Slow != 3 || slow[0].Slowest == nil || slow[0].Slowest.Ms != 2600 || slow[0].Slowest.ConnectMs != 2410 {
+		t.Errorf("the slow span's check = %+v; want 3 slow, the slowest 2600 ms in the span (not the 3900 ms before it)", slow)
 	}
 	if status, _, _ := do(t, s, "GET", "/v1/monitor/states?range=90d", "Bearer "+vistaToken); status != http.StatusBadRequest {
 		t.Errorf("range=90d: %d, want 400 (the minutes are kept 30 days)", status)
@@ -359,3 +370,5 @@ func TestAppsGolden(t *testing.T) {
 		t.Errorf("projects = %+v", answer.Projects)
 	}
 }
+
+func ptrTo[T any](v T) *T { return &v }

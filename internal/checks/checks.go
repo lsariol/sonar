@@ -9,10 +9,12 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -37,8 +39,51 @@ type Result struct {
 	Outcome Outcome
 	Status  int           // the HTTP status; 0 without an answer
 	Latency time.Duration // until the answer was read; 0 without one
+	Phases  Phases        // where Latency went; zero without an answer
 	Error   string
 	Refused bool // never contacted: the address isn't a public one
+}
+
+// Phases splits an answered check's time: a slow DNS or connect is the network, a slow wait the site.
+type Phases struct {
+	DNS     time.Duration // looking up the address
+	Connect time.Duration // opening the connection
+	TLS     time.Duration // the TLS handshake
+	Wait    time.Duration // from the connection being ready to the answer's first byte
+	Read    time.Duration // reading the rest of the answer
+}
+
+// timing marks when each phase of one check ended; the dialer and the trace fill it in.
+type timing struct {
+	mu                             sync.Mutex
+	dnsStart, dnsDone, connectDone time.Time
+	tlsStart, tlsDone, firstByte   time.Time
+}
+
+type timingKey struct{}
+
+func (t *timing) mark(at *time.Time) {
+	t.mu.Lock()
+	*at = time.Now()
+	t.mu.Unlock()
+}
+
+// phases is the time between marks; a phase whose marks are missing is zero.
+func (t *timing) phases(end time.Time) Phases {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	between := func(from, to time.Time) time.Duration {
+		if from.IsZero() || to.IsZero() || to.Before(from) {
+			return 0
+		}
+		return to.Sub(from)
+	}
+	ready := t.tlsDone
+	if ready.IsZero() {
+		ready = t.connectDone
+	}
+	return Phases{DNS: between(t.dnsStart, t.dnsDone), Connect: between(t.dnsDone, t.connectDone),
+		TLS: between(t.tlsStart, t.tlsDone), Wait: between(ready, t.firstByte), Read: between(t.firstByte, end)}
 }
 
 // Validate says why a public-url label can't be checked: https on 443, to a public hostname.
@@ -203,7 +248,14 @@ func (c *Checker) dial(ctx context.Context, network, address string) (net.Conn, 
 		return nil, fmt.Errorf("port %q: %w", port, err)
 	}
 
+	tm, _ := ctx.Value(timingKey{}).(*timing)
+	if tm != nil {
+		tm.mark(&tm.dnsStart)
+	}
 	addrs, err := c.resolver.LookupNetIP(ctx, "ip", host)
+	if tm != nil {
+		tm.mark(&tm.dnsDone)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("DNS: %w", err)
 	}
@@ -221,6 +273,9 @@ func (c *Checker) dial(ctx context.Context, network, address string) (net.Conn, 
 	for _, a := range addrs {
 		conn, err := d.DialContext(ctx, "tcp", netip.AddrPortFrom(a.Unmap(), uint16(portNum)).String())
 		if err == nil {
+			if tm != nil {
+				tm.mark(&tm.connectDone)
+			}
 			return conn, nil
 		}
 		lastErr = err
@@ -238,6 +293,12 @@ func (c *Checker) Check(ctx context.Context, raw string) Result {
 		r.Error, r.Refused = "label "+err.Error(), true
 		return r
 	}
+	tm := &timing{}
+	ctx = httptrace.WithClientTrace(context.WithValue(ctx, timingKey{}, tm), &httptrace.ClientTrace{
+		TLSHandshakeStart:    func() { tm.mark(&tm.tlsStart) },
+		TLSHandshakeDone:     func(tls.ConnectionState, error) { tm.mark(&tm.tlsDone) },
+		GotFirstResponseByte: func() { tm.mark(&tm.firstByte) },
+	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		r.Error = err.Error()
@@ -254,7 +315,9 @@ func (c *Checker) Check(ctx context.Context, raw string) Result {
 	}
 	_, readErr := io.Copy(io.Discard, io.LimitReader(resp.Body, maxBody))
 	resp.Body.Close()
-	r.Latency = time.Since(start)
+	end := time.Now()
+	r.Latency = end.Sub(start)
+	r.Phases = tm.phases(end)
 	r.Status = resp.StatusCode
 
 	switch {

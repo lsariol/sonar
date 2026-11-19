@@ -39,7 +39,8 @@
               "state": "down",
               "failures": 3,
               "slow": 0,
-              "last_error": "timed out after 5s"
+              "last_error": "timed out after 5s",
+              "slowest": null
             }
           ]
         },
@@ -66,6 +67,37 @@
           "observed_minutes": 60,
           "services": [],
           "checks": []
+        }
+      ]
+    },
+    {
+      "project": "rill-web",
+      "spans": [
+        {
+          "state": "degraded",
+          "start": "2026-10-21T12:44:00Z",
+          "end": "2026-10-21T12:46:00Z",
+          "observed_minutes": 2,
+          "services": [],
+          "checks": [
+            {
+              "service": "web",
+              "url": "https://rill.mobasity.com",
+              "state": "degraded",
+              "failures": 0,
+              "slow": 3,
+              "last_error": null,
+              "slowest": {
+                "at": "2026-10-21T12:44:00Z",
+                "ms": 2600,
+                "dns_ms": 2,
+                "connect_ms": 2410,
+                "tls_ms": 120,
+                "wait_ms": 61,
+                "read_ms": 7
+              }
+            }
+          ]
         }
       ]
     },

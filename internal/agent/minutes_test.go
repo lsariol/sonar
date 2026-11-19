@@ -136,6 +136,30 @@ func TestOneSlowAnswer(t *testing.T) {
 	}
 }
 
+// TestSlowestPhases: a minute keeps where its slowest answer's time went, not its last answer's.
+func TestSlowestPhases(t *testing.T) {
+	a, _ := newTestAgent(t, &fakeDocker{}, &fakeChecker{})
+	minuteStart := start.Truncate(time.Minute)
+	tg := target{project: "plop", service: "plop", url: "https://plop.mobasity.com"}
+	answers := []checks.Result{
+		{Outcome: checks.OK, Latency: 300 * time.Millisecond, Phases: checks.Phases{Wait: 250 * time.Millisecond}},
+		{Outcome: checks.Slow, Latency: 2500 * time.Millisecond, Phases: checks.Phases{Connect: 2300 * time.Millisecond}},
+		{Outcome: checks.Failed, Error: "timed out after 5s"},
+		{Outcome: checks.OK, Latency: 200 * time.Millisecond, Phases: checks.Phases{Wait: 150 * time.Millisecond}},
+	}
+	for n, r := range answers {
+		a.addCheckMinute(minuteStart.Add(time.Duration(n)*10*time.Second), tg, r, state.Up, state.Up)
+	}
+	a.closeMinutes(minuteStart.Add(time.Minute + flushDelay))
+	if len(a.pending) != 1 || len(a.pending[0].Checks) != 1 {
+		t.Fatalf("pending = %+v", a.pending)
+	}
+	c := a.pending[0].Checks[0]
+	if c.Phases == nil || c.Phases.ConnectMs != 2300 || c.Phases.WaitMs != 0 || *c.LatencyMaxMs != 2500 {
+		t.Errorf("phases = %+v, latency max %v; want the 2.5 s answer's 2300 ms connecting", c.Phases, c.LatencyMaxMs)
+	}
+}
+
 // TestCheckStateCarriesOver: a check degraded at the end of one minute was degraded at the start of the next.
 func TestCheckStateCarriesOver(t *testing.T) {
 	url := "https://plop.mobasity.com"

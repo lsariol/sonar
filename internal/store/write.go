@@ -116,8 +116,14 @@ type CheckMinute struct {
 	Attempts, Failures, Slow int
 	LatencyAvgMs             *int // over the checks that answered
 	LatencyMaxMs             *int
-	State                    state.State // the worst it held during the minute
-	LastError                string      // the last failed check's error; "" when none failed
+	State                    state.State  // the worst it held during the minute
+	LastError                string       // the last failed check's error; "" when none failed
+	Phases                   *CheckPhases // the slowest answer's; nil without an answer
+}
+
+// CheckPhases is where one answered check's time went, in milliseconds.
+type CheckPhases struct {
+	DNSMs, ConnectMs, TLSMs, WaitMs, ReadMs int
 }
 
 // ProjectMinute is a project's worst known state over one minute.
@@ -199,14 +205,16 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 	}
 	for _, c := range m.Checks {
 		b.Queue(`
-			INSERT INTO sonar.check_minutes (service_id, minute, url, attempts, failures, slow, latency_ms_avg, latency_ms_max, state, last_error)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			INSERT INTO sonar.check_minutes (service_id, minute, url, attempts, failures, slow, latency_ms_avg, latency_ms_max, state, last_error,
+				dns_ms, connect_ms, tls_ms, wait_ms, read_ms)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 			ON CONFLICT (service_id, minute) DO UPDATE SET
 				url = EXCLUDED.url, attempts = EXCLUDED.attempts, failures = EXCLUDED.failures, slow = EXCLUDED.slow,
 				latency_ms_avg = EXCLUDED.latency_ms_avg, latency_ms_max = EXCLUDED.latency_ms_max, state = EXCLUDED.state,
-				last_error = EXCLUDED.last_error`,
-			ids[key(c.Project, c.Service)], start, c.URL, c.Attempts, c.Failures, c.Slow, c.LatencyAvgMs, c.LatencyMaxMs, int(c.State),
-			nullString(c.LastError))
+				last_error = EXCLUDED.last_error, dns_ms = EXCLUDED.dns_ms, connect_ms = EXCLUDED.connect_ms,
+				tls_ms = EXCLUDED.tls_ms, wait_ms = EXCLUDED.wait_ms, read_ms = EXCLUDED.read_ms`,
+			append([]any{ids[key(c.Project, c.Service)], start, c.URL, c.Attempts, c.Failures, c.Slow, c.LatencyAvgMs, c.LatencyMaxMs,
+				int(c.State), nullString(c.LastError)}, c.Phases.args()...)...)
 	}
 	for _, p := range m.Projects {
 		b.Queue(`
@@ -333,6 +341,14 @@ func upsertServices(ctx context.Context, tx pgx.Tx, m Minute) (map[string]int, e
 
 func key(project, service string) string {
 	return project + "\x00" + service
+}
+
+// args are the phases as query arguments, all NULL without them.
+func (p *CheckPhases) args() []any {
+	if p == nil {
+		return []any{nil, nil, nil, nil, nil}
+	}
+	return []any{p.DNSMs, p.ConnectMs, p.TLSMs, p.WaitMs, p.ReadMs}
 }
 
 func nullString(s string) *string {

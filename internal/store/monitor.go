@@ -117,12 +117,15 @@ type CheckTrouble struct {
 	State                 state.State
 	Failures, Slow        int
 	LastError             string
+	LatencyMaxMs          *int         // the minute's slowest answer; nil without one
+	Phases                *CheckPhases // where that answer's time went; nil before v0.3.2
 }
 
 // CheckTroubles returns the minutes an outside check failed, was slow, or wasn't up.
 func (s *Store) CheckTroubles(ctx context.Context, from, to time.Time) ([]CheckTrouble, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT s.project, s.service, c.url, c.minute, c.state, c.failures, c.slow, coalesce(c.last_error, '')
+		SELECT s.project, s.service, c.url, c.minute, c.state, c.failures, c.slow, coalesce(c.last_error, ''),
+		       c.latency_ms_max, c.dns_ms, c.connect_ms, c.tls_ms, c.wait_ms, c.read_ms
 		  FROM sonar.check_minutes c JOIN sonar.services s ON s.id = c.service_id
 		 WHERE c.minute >= $1 AND c.minute < $2 AND (c.failures > 0 OR c.slow > 0 OR c.state IN (2, 3))
 		 ORDER BY c.minute`, from.UTC(), to.UTC())
@@ -132,8 +135,13 @@ func (s *Store) CheckTroubles(ctx context.Context, from, to time.Time) ([]CheckT
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (CheckTrouble, error) {
 		var t CheckTrouble
 		var st int16
-		err := r.Scan(&t.Project, &t.Service, &t.URL, &t.Minute, &st, &t.Failures, &t.Slow, &t.LastError)
+		var dns, connect, tlsMs, wait, read *int
+		err := r.Scan(&t.Project, &t.Service, &t.URL, &t.Minute, &st, &t.Failures, &t.Slow, &t.LastError,
+			&t.LatencyMaxMs, &dns, &connect, &tlsMs, &wait, &read)
 		t.State, t.Minute = state.State(st), t.Minute.UTC()
+		if dns != nil && connect != nil && tlsMs != nil && wait != nil && read != nil {
+			t.Phases = &CheckPhases{DNSMs: *dns, ConnectMs: *connect, TLSMs: *tlsMs, WaitMs: *wait, ReadMs: *read}
+		}
 		return t, err
 	})
 	if err != nil {

@@ -485,12 +485,38 @@ type SpanCause struct {
 }
 
 type CheckCause struct {
-	Service   string  `json:"service"`
-	URL       string  `json:"url"`
-	State     string  `json:"state"`
-	Failures  int     `json:"failures"`
-	Slow      int     `json:"slow"`
-	LastError *string `json:"last_error"`
+	Service   string        `json:"service"`
+	URL       string        `json:"url"`
+	State     string        `json:"state"`
+	Failures  int           `json:"failures"`
+	Slow      int           `json:"slow"`
+	LastError *string       `json:"last_error"`
+	Slowest   *SlowestCheck `json:"slowest"` // the span's slowest answer; nil without one timed
+}
+
+// SlowestCheck is one answer's time and where it went: dns and connect are the network, wait the site.
+type SlowestCheck struct {
+	At        time.Time `json:"at"` // its minute
+	Ms        int       `json:"ms"`
+	DNSMs     int       `json:"dns_ms"`
+	ConnectMs int       `json:"connect_ms"`
+	TLSMs     int       `json:"tls_ms"`
+	WaitMs    int       `json:"wait_ms"`
+	ReadMs    int       `json:"read_ms"`
+}
+
+// Mostly is the phase that took the longest, in words, and its milliseconds.
+func (s SlowestCheck) Mostly() (string, int) {
+	phase, ms := "looking up the address", s.DNSMs
+	for _, p := range []struct {
+		name string
+		ms   int
+	}{{"connecting", s.ConnectMs}, {"the TLS handshake", s.TLSMs}, {"waiting for the site", s.WaitMs}, {"reading the answer", s.ReadMs}} {
+		if p.ms > ms {
+			phase, ms = p.name, p.ms
+		}
+	}
+	return phase, ms
 }
 
 // buildStates turns runs of minutes into spans, joined across short gaps, with what wasn't up in each.
@@ -566,6 +592,10 @@ func buildStates(now time.Time, name string, length time.Duration, spans []store
 				if t.LastError != "" {
 					e := t.LastError
 					c.LastError = &e
+				}
+				if p := t.Phases; p != nil && t.LatencyMaxMs != nil && (c.Slowest == nil || *t.LatencyMaxMs > c.Slowest.Ms) {
+					c.Slowest = &SlowestCheck{At: t.Minute, Ms: *t.LatencyMaxMs, DNSMs: p.DNSMs, ConnectMs: p.ConnectMs,
+						TLSMs: p.TLSMs, WaitMs: p.WaitMs, ReadMs: p.ReadMs}
 				}
 			}
 			slices.SortFunc(order, func(x, y [2]string) int { return cmp.Or(cmp.Compare(x[0], y[0]), cmp.Compare(x[1], y[1])) })

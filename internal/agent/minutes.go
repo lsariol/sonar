@@ -63,6 +63,7 @@ type checkSum struct {
 	attempts, failures, slow int
 	latSum, latMax           int64
 	latN                     int
+	slowest                  *checks.Phases // the phases of the answer that took latMax
 	state                    state.State
 	lastError                string
 }
@@ -206,6 +207,10 @@ func (a *Agent) addCheckMinute(now time.Time, t target, r checks.Result, prev, s
 	}
 	if r.Outcome != checks.Failed && r.Latency > 0 {
 		ms := r.Latency.Milliseconds()
+		if c.slowest == nil || ms >= c.latMax {
+			p := r.Phases
+			c.slowest = &p
+		}
 		c.latSum += ms
 		c.latMax = max(c.latMax, ms)
 		c.latN++
@@ -294,6 +299,10 @@ func (b *bucket) minute() store.Minute {
 		if c.latN > 0 {
 			avg, hi := int(c.latSum/int64(c.latN)), int(c.latMax)
 			cm.LatencyAvgMs, cm.LatencyMaxMs = &avg, &hi
+		}
+		if p := c.slowest; p != nil {
+			cm.Phases = &store.CheckPhases{DNSMs: int(p.DNS.Milliseconds()), ConnectMs: int(p.Connect.Milliseconds()),
+				TLSMs: int(p.TLS.Milliseconds()), WaitMs: int(p.Wait.Milliseconds()), ReadMs: int(p.Read.Milliseconds())}
 		}
 		m.Checks = append(m.Checks, cm)
 	}

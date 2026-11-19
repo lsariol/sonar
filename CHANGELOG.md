@@ -2,6 +2,15 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
+## v0.3.2 (unreleased)
+
+### Added
+- Each outside check records where its time went: looking up the address, connecting, the TLS handshake, waiting for the site and reading the answer. A degraded stretch in `/v1/monitor/states` gives its slowest answer split that way, so a slow site can be told from a slow network, and `sonar states` says which phase took longest.
+
+### Fixed
+- A single answer slower than 2 seconds no longer marks a project degraded: like failures, slow answers need two in a row. One slow answer made every site flap for a minute or two.
+- Every degraded stretch names its cause. A check that turned slow at the end of one minute kept the project degraded into the next, but that minute recorded no cause.
+
 ## v0.3.1 (2026-11-19)
 
 ### Added

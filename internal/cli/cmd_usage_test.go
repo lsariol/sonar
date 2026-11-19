@@ -119,17 +119,23 @@ func TestStatesCommand(t *testing.T) {
 	db.spans = []store.Span{
 		{Project: "plop", State: state.Up, Start: m(0), End: m(60), Minutes: 60},
 		{Project: "plop", State: state.Down, Start: m(60), End: m(65), Minutes: 5},
-		{Project: "plop", State: state.Up, Start: m(65), End: m(180), Minutes: 115},
+		{Project: "plop", State: state.Up, Start: m(65), End: m(100), Minutes: 35},
+		{Project: "plop", State: state.Degraded, Start: m(100), End: m(102), Minutes: 2},
+		{Project: "plop", State: state.Up, Start: m(102), End: m(180), Minutes: 78},
 	}
 	db.serviceTrouble = []store.ServiceTrouble{{Project: "plop", Service: "plop", Minute: m(61), State: state.Down}}
+	slowMs := 2600
 	db.checkTrouble = []store.CheckTrouble{{Project: "plop", Service: "plop", URL: "https://plop.mobasity.com", Minute: m(61),
-		State: state.Down, Failures: 2, LastError: "HTTP 502 Bad Gateway"}}
+		State: state.Down, Failures: 2, LastError: "HTTP 502 Bad Gateway"}, {Project: "plop", Service: "plop", URL: "https://plop.mobasity.com",
+		Minute: m(100), State: state.Degraded, Slow: 2, LatencyMaxMs: &slowMs,
+		Phases: &store.CheckPhases{DNSMs: 2, ConnectMs: 40, TLSMs: 90, WaitMs: 2410, ReadMs: 58}}}
 	o, e, err := run(t, testCLI(t, &snap, db), "states plop")
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustContain(t, "states", o, "LASTED", "down", "5 min", "plop down 1 min", "https://plop.mobasity.com down, 2 failed: HTTP 502 Bad Gateway")
-	mustContain(t, "states", e, `3 spans of "plop" over the last 7 days, 1 not operational`)
+	mustContain(t, "states", o, "LASTED", "down", "5 min", "plop down 1 min", "https://plop.mobasity.com down, 2 failed: HTTP 502 Bad Gateway",
+		"https://plop.mobasity.com degraded, 2 slow, slowest 2.6 s (2.4 s waiting for the site)")
+	mustContain(t, "states", e, `5 spans of "plop" over the last 7 days, 2 not operational`)
 
 	if _, _, err := run(t, testCLI(t, &snap, db), "states nope"); err == nil || !strings.Contains(err.Error(), `No project "nope"`) {
 		t.Errorf("an unknown project: %v", err)

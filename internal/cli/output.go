@@ -153,6 +153,14 @@ func duration(d time.Duration) string {
 	return fmt.Sprintf("%d s", int(d.Seconds()))
 }
 
+// seconds is a check's time in milliseconds, said plainly: "2.6 s", "120 ms".
+func seconds(ms int) string {
+	if ms < 1000 {
+		return fmt.Sprintf("%d ms", ms)
+	}
+	return fmt.Sprintf("%.1f s", float64(ms)/1000)
+}
+
 // size is a byte count in binary units: "512 KiB", "3.2 GiB".
 func size(n uint64) string {
 	if n < 1024 {

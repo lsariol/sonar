@@ -145,6 +145,16 @@ func TestCheckOutcomes(t *testing.T) {
 	if r.Outcome != Slow || r.Status != 200 {
 		t.Errorf("slow: %+v", r)
 	}
+	p := r.Phases
+	if p.Wait < 150*time.Millisecond || p.TLS <= 0 || p.Connect < 0 || p.DNS < 0 || p.Read < 0 {
+		t.Errorf("slow phases = %+v; want the server's 150 ms in the wait, and a TLS handshake", p)
+	}
+	if sum := p.DNS + p.Connect + p.TLS + p.Wait + p.Read; sum > r.Latency {
+		t.Errorf("phases add up to %v, more than the %v the check took", sum, r.Latency)
+	}
+	if r := c.Check(ctx, "https://plop.mobasity.com/broken"); r.Phases.TLS <= 0 {
+		t.Errorf("an error page is still timed: %+v", r.Phases)
+	}
 }
 
 // TestHostileStatusLine: a status line with control codes; the error uses Go's wording instead.
