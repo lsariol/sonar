@@ -2,6 +2,28 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
+## v0.3.0 (2026-11-19)
+
+Owner detail for a private dashboard, and new things Sonar watches: Spark's own health, the network, the databases, disk use, traffic from Cloudflare and what the apps report about themselves.
+
+### Added
+- A second API consumer, Vista, with its own token, and owner endpoints under `monitor:read`: every project's status (the ones the status page leaves out too), each project now with its containers, restarts and checks, Spark's conditions, state changes with what wasn't up, host and per-service history, databases, disk use, traffic and the apps' reports. The README lists them.
+- Spark's own conditions, such as a full disk, heavy swap, sparkdb near its connection limit or an infrastructure project down, each with a level and since when. `sonar status` lists them.
+- The host's network traffic per interface, read from the host's network counters alone.
+- Each database's size and connections on sparkdb, read by a new role, `sonar_monitor`, that sees statistics only.
+- What each project keeps on disk (its data folder, its own image layers, its containers and volumes), measured every 30 minutes and kept for 380 days.
+- Each site's requests, 5xx answers and bytes from Cloudflare, by hour, kept for 380 days.
+- App reports: an app labelled `com.mobasity.report-port` serves its usage counters and feature checks, and Sonar keeps how each counter grows and when each check changes.
+- The `com.mobasity.check-path` label checks a site at another path, for a site behind a sign-in; `com.mobasity.group: infrastructure` marks a project Spark depends on.
+- Each outside check's last error is kept with its minute, so an incident can say why.
+- CLI commands `databases`, `disk`, `traffic`, `apps` and `states`.
+
+### Changed
+- `sonar-agent` needs `SONAR_DATABASE_MONITOR_URL` and `SONAR_CLOUDFLARE_TOKEN`, and `sonar-api` needs `SHARED_SONAR_VISTA_TOKEN`; each refuses to start without its keys.
+- The image runs as user 10001; only `sonar-proxy`, which reads the Docker socket and sizes the data folders, runs as root.
+- Built with Go 1.27.4, which fixes a crash in Go's HTTP server.
+- An MIT license, and a README that covers setup, settings, labels, the API and app reports.
+
 ## v0.2.5 (2026-11-11)
 
 ### Added
