@@ -10,12 +10,13 @@ const Socket = "/run/sonar-proxy/proxy.sock"
 
 // The labels the proxy passes on; every other label stays behind.
 const (
-	ProjectLabel   = "com.docker.compose.project"
-	ServiceLabel   = "com.docker.compose.service"
-	PublicURLLabel = "com.mobasity.public-url"
-	CheckPathLabel = "com.mobasity.check-path" // checked instead of the public URL's own path
-	VersionLabel   = "com.mobasity.version"
-	TierLabel      = "com.mobasity.tier" // data, infra or app, as Lighthouse's tier setting says
+	ProjectLabel    = "com.docker.compose.project"
+	ServiceLabel    = "com.docker.compose.service"
+	PublicURLLabel  = "com.mobasity.public-url"
+	CheckPathLabel  = "com.mobasity.check-path" // checked instead of the public URL's own path
+	VersionLabel    = "com.mobasity.version"
+	TierLabel       = "com.mobasity.tier"        // data, infra or app, as Lighthouse's tier setting says
+	ReportPortLabel = "com.mobasity.report-port" // where the app serves its report (internal/report)
 )
 
 // Container is one container: what it is and what state it's in.
@@ -39,6 +40,7 @@ type Container struct {
 	CheckPath     string     `json:"check_path"`
 	Version       string     `json:"version"`
 	Tier          string     `json:"tier"`
+	ReportPort    string     `json:"report_port"`
 }
 
 // Stats are one running container's counters at ReadAt. Rates come from the

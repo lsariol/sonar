@@ -147,6 +147,7 @@ func (a *Agent) resumeFrom(snap snapshot.Snapshot, now time.Time) {
 	}
 	a.watching = len(snap.Projects) > 0
 	a.resumeConditions(snap)
+	a.resumeApps(snap)
 	for _, p := range snap.Projects {
 		if p.Project == "" {
 			continue

@@ -66,6 +66,17 @@ func (s *Store) Rollup(ctx context.Context, day time.Time) error {
 	if err != nil {
 		return fmt.Errorf("database: daily service rows for %s: %w", from.Format(time.DateOnly), err)
 	}
+	_, err = s.pool.Exec(ctx, `
+		INSERT INTO sonar.app_counter_days (project, name, day, total)
+		SELECT project, name, $1, sum(increase)
+		  FROM sonar.app_counter_minutes
+		 WHERE minute >= $2 AND minute < $3
+		 GROUP BY project, name
+		ON CONFLICT (project, name, day) DO UPDATE SET total = EXCLUDED.total`,
+		from, from, to)
+	if err != nil {
+		return fmt.Errorf("database: daily app counters for %s: %w", from.Format(time.DateOnly), err)
+	}
 	return nil
 }
 
@@ -91,6 +102,9 @@ func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 		{"project_disk", "measured_at", dayCutoff},
 		{"disk_totals", "measured_at", dayCutoff},
 		{"traffic_hours", "hour", dayCutoff},
+		{"app_counter_minutes", "minute", minuteCutoff},
+		{"app_counter_days", "day", dayCutoff},
+		{"app_check_changes", "at", dayCutoff},
 	}
 
 	var total int64

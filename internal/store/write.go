@@ -23,6 +23,23 @@ type Minute struct {
 	Databases  []DatabaseMinute
 	Disk       *DiskMeasurement // a new measurement of disk use, at most one a minute
 	Traffic    []TrafficHour    // hours read from Cloudflare, possibly read before
+
+	AppCounters []AppCounter     // how much each app counter grew during the minute
+	AppChecks   []AppCheckChange // app checks that changed during the minute
+}
+
+// AppCounter is how much one of a project's usage counters grew.
+type AppCounter struct {
+	Project, Name string
+	Increase      uint64
+}
+
+// AppCheckChange is one of an app's feature checks changing (or first seen).
+type AppCheckChange struct {
+	Project, Service, Name string
+	At                     time.Time
+	OK                     bool
+	Message                string
 }
 
 // TrafficHour is one hostname's traffic in one hour, as Cloudflare counts it.
@@ -210,6 +227,18 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 			ON CONFLICT (database, minute) DO UPDATE SET
 				connections = EXCLUDED.connections, active = EXCLUDED.active, size_bytes = EXCLUDED.size_bytes`,
 			start, d.Database, d.Connections, d.Active, d.SizeBytes)
+	}
+	for _, c := range m.AppCounters {
+		b.Queue(`
+			INSERT INTO sonar.app_counter_minutes (project, name, minute, increase) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (project, name, minute) DO UPDATE SET increase = EXCLUDED.increase`,
+			c.Project, c.Name, start, int64(c.Increase))
+	}
+	for _, c := range m.AppChecks {
+		b.Queue(`
+			INSERT INTO sonar.app_check_changes (project, service, name, at, ok, message) VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (project, service, name, at) DO UPDATE SET ok = EXCLUDED.ok, message = EXCLUDED.message`,
+			c.Project, c.Service, c.Name, c.At.UTC(), c.OK, c.Message)
 	}
 	for _, t := range m.Traffic {
 		b.Queue(`

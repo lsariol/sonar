@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-10-21T15:04:05Z",
+  "days": 3,
+  "projects": [
+    {
+      "project": "dibs",
+      "reporters": [],
+      "counters": [
+        {
+          "name": "games_completed",
+          "total": 52,
+          "days": [
+            {
+              "date": "2026-10-19",
+              "total": 0
+            },
+            {
+              "date": "2026-10-20",
+              "total": 40
+            },
+            {
+              "date": "2026-10-21",
+              "total": 12
+            }
+          ]
+        }
+      ],
+      "checks": [],
+      "changes": []
+    },
+    {
+      "project": "lys",
+      "reporters": [
+        {
+          "service": "lys",
+          "container": "lys",
+          "read_at": "2026-10-21T15:03:45Z",
+          "error": null,
+          "started_at": "2026-10-21T14:04:05Z"
+        }
+      ],
+      "counters": [
+        {
+          "name": "commands_run",
+          "total": 300,
+          "days": [
+            {
+              "date": "2026-10-19",
+              "total": 0
+            },
+            {
+              "date": "2026-10-20",
+              "total": 0
+            },
+            {
+              "date": "2026-10-21",
+              "total": 300
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "service": "lys",
+          "name": "twitch_chat",
+          "ok": true,
+          "message": "connected to 3 channels",
+          "since": "2026-10-21T14:54:05Z"
+        }
+      ],
+      "changes": [
+        {
+          "service": "lys",
+          "name": "twitch_chat",
+          "at": "2026-10-21T14:54:05Z",
+          "ok": true,
+          "message": "connected to 3 channels"
+        },
+        {
+          "service": "lys",
+          "name": "twitch_chat",
+          "at": "2026-10-21T14:49:05Z",
+          "ok": false,
+          "message": "disconnected: EOF"
+        }
+      ]
+    },
+    {
+      "project": "maroo",
+      "reporters": [
+        {
+          "service": "maroo",
+          "container": "maroo",
+          "read_at": null,
+          "error": "GET http://maroo:8080/report/v1: connection refused",
+          "started_at": null
+        }
+      ],
+      "counters": [],
+      "checks": [],
+      "changes": []
+    }
+  ]
+}

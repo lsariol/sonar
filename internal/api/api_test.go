@@ -48,6 +48,8 @@ type fakeReader struct {
 	databases      []store.DatabaseBucket
 	disk           []store.DiskPoint
 	traffic        []store.TrafficBucket
+	appCounters    []store.AppCounterDay
+	appChanges     []store.AppCheckChange
 
 	dayCalls  atomic.Int32
 	histCalls atomic.Int32
@@ -121,6 +123,14 @@ func (f *fakeReader) DiskHistory(context.Context, time.Time, time.Time, time.Dur
 
 func (f *fakeReader) TrafficHistory(context.Context, time.Time, time.Time, time.Duration) ([]store.TrafficBucket, error) {
 	return f.traffic, f.err
+}
+
+func (f *fakeReader) AppCounterDays(context.Context, time.Time, time.Time) ([]store.AppCounterDay, error) {
+	return f.appCounters, f.err
+}
+
+func (f *fakeReader) AppCheckChanges(context.Context, time.Time) ([]store.AppCheckChange, error) {
+	return f.appChanges, f.err
 }
 
 func (f *fakeReader) CheckSchemaVersion(context.Context) error { return nil }

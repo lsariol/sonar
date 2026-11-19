@@ -64,6 +64,7 @@ func open(t *testing.T) *Store {
 	})
 
 	for _, table := range []string{"containers", "host_minutes", "service_minutes", "check_minutes", "host_net_minutes", "database_minutes", "project_disk", "disk_totals", "traffic_hours",
+		"app_counter_minutes", "app_counter_days", "app_check_changes",
 		"project_minutes", "project_days", "service_days", "updates", "services"} {
 		if _, err := s.pool.Exec(ctx, "DELETE FROM sonar."+table); err != nil {
 			t.Fatal(err)

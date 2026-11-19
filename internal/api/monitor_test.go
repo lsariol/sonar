@@ -14,7 +14,7 @@ import (
 )
 
 var monitorPaths = []string{"/v1/monitor/status", "/v1/monitor/projects", "/v1/monitor/conditions",
-	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases", "/v1/monitor/disk", "/v1/monitor/traffic"}
+	"/v1/monitor/host", "/v1/monitor/usage", "/v1/monitor/states", "/v1/monitor/databases", "/v1/monitor/disk", "/v1/monitor/traffic", "/v1/monitor/apps"}
 
 // TestMonitorNeedsScope: only a token with monitor:read gets owner detail.
 func TestMonitorNeedsScope(t *testing.T) {
@@ -325,5 +325,38 @@ func TestTrafficGolden(t *testing.T) {
 	}
 	if status, _, _ := do(t, s, "GET", "/v1/monitor/traffic?range=1h", "Bearer "+vistaToken); status != http.StatusBadRequest {
 		t.Errorf("range=1h: %d, want 400 (Cloudflare's counts are hourly)", status)
+	}
+}
+
+func TestAppsGolden(t *testing.T) {
+	today := midnight(now)
+	r := &fakeReader{
+		appCounters: []store.AppCounterDay{
+			{Project: "dibs", Name: "games_completed", Day: today.AddDate(0, 0, -1), Total: 40},
+			{Project: "dibs", Name: "games_completed", Day: today, Total: 12},
+			{Project: "lys", Name: "commands_run", Day: today, Total: 300},
+		},
+		appChanges: []store.AppCheckChange{
+			{Project: "lys", Service: "lys", Name: "twitch_chat", At: now.Add(-10 * time.Minute), OK: true, Message: "connected to 3 channels"},
+			{Project: "lys", Service: "lys", Name: "twitch_chat", At: now.Add(-15 * time.Minute), OK: false, Message: "disconnected: EOF"},
+		},
+	}
+	snap := monitorSnapshot(now)
+	read, started := now.Add(-20*time.Second), now.Add(-time.Hour)
+	snap.Apps = []snapshot.AppReport{
+		{Project: "lys", Service: "lys", Container: "lys", ReadAt: &read, StartedAt: started, Counters: map[string]uint64{"commands_run": 9000},
+			Checks: []snapshot.AppCheck{{Name: "twitch_chat", OK: true, Message: "connected to 3 channels", Since: now.Add(-10 * time.Minute)}}},
+		{Project: "maroo", Service: "maroo", Container: "maroo", Error: "GET http://maroo:8080/report/v1: connection refused"},
+	}
+	s := newTestServer(t, r, &fakeSnapshots{snap: snap})
+	status, _, body := do(t, s, "GET", "/v1/monitor/apps?days=3", "Bearer "+vistaToken)
+	if status != http.StatusOK {
+		t.Fatalf("%d: %s", status, body)
+	}
+	golden(t, "monitor-apps.json", body)
+	var answer appsAnswer
+	json.Unmarshal(body, &answer)
+	if len(answer.Projects) != 3 || answer.Projects[0].Counters[0].Total != 52 || len(answer.Projects[0].Counters[0].Days) != 3 {
+		t.Errorf("projects = %+v", answer.Projects)
 	}
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/lsariol/sonar/internal/containers"
 	"github.com/lsariol/sonar/internal/host"
 	"github.com/lsariol/sonar/internal/proxy"
+	"github.com/lsariol/sonar/internal/report"
 	"github.com/lsariol/sonar/internal/snapshot"
 	"github.com/lsariol/sonar/internal/store"
 )
@@ -121,6 +122,7 @@ func runAgent() {
 		Docker:     containers.NewClient(containers.Socket),
 		Disk:       containers.NewClient(containers.Socket),
 		Traffic:    cloudflare.New(cloudflare.API, cloudflareToken),
+		Reports:    report.NewClient(),
 		Checker:    checks.New(cfg.Version),
 		Log:        log,
 		OpenStore: func(ctx context.Context) (agent.Store, error) {

@@ -78,6 +78,7 @@ type Options struct {
 	Docker      Docker
 	Disk        DiskReader // nil leaves disk use per project out
 	Traffic     Traffic    // nil leaves traffic per site out
+	Reports     Reports    // nil leaves the apps' reports out
 	Checker     Checker
 	Log         *slog.Logger
 	Now         func() time.Time // time.Now unless set
@@ -111,6 +112,9 @@ type Agent struct {
 	storageFiled time.Time         // the newest measurement filed for the database
 
 	trafficRead time.Time // the last reading of every zone that worked
+
+	apps        map[string]*appState // by container ID
+	appsRefused []string             // report-port labels that aren't ports, for attention
 
 	monitor     DatabaseMonitor
 	databases   *store.DatabaseUse // the last reading
@@ -190,6 +194,7 @@ func New(opts Options) *Agent {
 		updates:  make(map[serviceKey]*update),
 
 		conditionSince: make(map[string]time.Time),
+		apps:           make(map[string]*appState),
 	}
 	if opts.OpenStore != nil {
 		a.collectors[databaseCollector] = &collector{every: time.Minute}
@@ -205,6 +210,9 @@ func New(opts Options) *Agent {
 	}
 	if opts.Traffic != nil {
 		a.collectors[trafficCollector] = &collector{every: trafficEvery}
+	}
+	if opts.Reports != nil {
+		a.collectors[appsCollector] = &collector{every: appsEvery}
 	}
 	return a
 }
@@ -252,6 +260,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	if a.opts.Traffic != nil {
 		every(trafficEvery, true, a.sampleTraffic)
+	}
+	if a.opts.Reports != nil {
+		every(appsEvery, false, a.sampleApps)
 	}
 	every(hostEvery, true, func(context.Context) { a.tick() })
 	if a.opts.OpenStore != nil {

@@ -29,7 +29,10 @@ type bucket struct {
 	databases  []store.DatabaseRow  // the minute's last reading of sparkdb
 	disk       *snapshot.DiskUse    // a new measurement of disk use
 	traffic    []store.TrafficHour  // hours read from Cloudflare
-	updates    []store.Update       // updates that ended during the minute
+
+	appCounters map[appCounterKey]uint64 // how much each counter grew
+	appChecks   []store.AppCheckChange   // checks that changed
+	updates     []store.Update           // updates that ended during the minute
 }
 
 type serviceKey struct{ project, service string }
@@ -87,6 +90,8 @@ func (a *Agent) bucketAt(t time.Time) *bucket {
 			projects:   make(map[string]*projectSum),
 			containers: make(map[string]store.ContainerSeen),
 			network:    make(map[string]*counters),
+
+			appCounters: make(map[appCounterKey]uint64),
 		}
 		a.buckets[start] = b
 	}
@@ -308,6 +313,13 @@ func (b *bucket) minute() store.Minute {
 	slices.SortFunc(m.Network, func(x, y store.NetMinute) int { return cmp.Compare(x.Interface, y.Interface) })
 	m.Disk = diskMeasurement(b.disk)
 	m.Traffic = b.traffic
+	m.AppChecks = b.appChecks
+	for k, v := range b.appCounters {
+		m.AppCounters = append(m.AppCounters, store.AppCounter{Project: k.project, Name: k.name, Increase: v})
+	}
+	slices.SortFunc(m.AppCounters, func(x, y store.AppCounter) int {
+		return cmp.Or(cmp.Compare(x.Project, y.Project), cmp.Compare(x.Name, y.Name))
+	})
 	for _, d := range b.databases {
 		m.Databases = append(m.Databases, store.DatabaseMinute{Database: d.Name, Connections: d.Connections, Active: d.Active,
 			SizeBytes: d.SizeBytes})

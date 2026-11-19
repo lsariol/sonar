@@ -71,6 +71,13 @@ func (a *Agent) build() snapshot.Snapshot {
 	s.Projects = a.buildProjects(now, checksByProject, dockerFresh)
 	s.Databases = a.buildDatabases()
 	s.Storage = a.storage
+	s.Apps = a.buildApps()
+	s.Attention = append(s.Attention, a.appsRefused...)
+	for _, r := range s.Apps {
+		if r.Error != "" {
+			s.Attention = append(s.Attention, fmt.Sprintf("%s: its report: %s", whose(r.Project, r.Service), r.Error))
+		}
+	}
 	s.Conditions = a.trackConditions(now, conditions(s))
 	return s
 }

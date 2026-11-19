@@ -837,3 +837,119 @@ func buildTraffic(now time.Time, name string, r historyRange, snap *snapshot.Sna
 	}
 	return answer
 }
+
+// --- GET /v1/monitor/apps ---
+
+type appsAnswer struct {
+	GeneratedAt time.Time    `json:"generated_at"`
+	Days        int          `json:"days"`
+	Projects    []appProject `json:"projects"`
+}
+
+type appProject struct {
+	Project   string        `json:"project"`
+	Reporters []appReporter `json:"reporters"` // the containers that serve a report
+	Counters  []appCounter  `json:"counters"`
+	Checks    []appCheckNow `json:"checks"`
+	Changes   []appChange   `json:"changes"` // checks' changes in the window, newest first
+}
+
+type appReporter struct {
+	Service   string     `json:"service"`
+	Container string     `json:"container"`
+	ReadAt    *time.Time `json:"read_at"`
+	Error     *string    `json:"error"`
+	StartedAt *time.Time `json:"started_at"`
+}
+
+type appCounter struct {
+	Name  string     `json:"name"`
+	Total int64      `json:"total"` // over the window
+	Days  []countDay `json:"days"`  // every day of the window, oldest first
+}
+
+type countDay struct {
+	Date  string `json:"date"`
+	Total int64  `json:"total"`
+}
+
+type appCheckNow struct {
+	Service string    `json:"service"`
+	Name    string    `json:"name"`
+	OK      bool      `json:"ok"`
+	Message string    `json:"message"`
+	Since   time.Time `json:"since"`
+}
+
+type appChange struct {
+	Service string    `json:"service"`
+	Name    string    `json:"name"`
+	At      time.Time `json:"at"`
+	OK      bool      `json:"ok"`
+	Message string    `json:"message"`
+}
+
+func buildApps(now time.Time, days int, snap *snapshot.Snapshot, counters []store.AppCounterDay, changes []store.AppCheckChange) appsAnswer {
+	answer := appsAnswer{GeneratedAt: now.UTC(), Days: days, Projects: []appProject{}}
+	byName := make(map[string]*appProject)
+	of := func(project string) *appProject {
+		p := byName[project]
+		if p == nil {
+			p = &appProject{Project: project, Reporters: []appReporter{}, Counters: []appCounter{}, Checks: []appCheckNow{}, Changes: []appChange{}}
+			byName[project] = p
+		}
+		return p
+	}
+	if snap != nil {
+		for _, r := range snap.Apps {
+			p := of(r.Project)
+			ar := appReporter{Service: r.Service, Container: r.Container, ReadAt: r.ReadAt, Error: optString(r.Error)}
+			if !r.StartedAt.IsZero() {
+				at := r.StartedAt.UTC()
+				ar.StartedAt = &at
+			}
+			p.Reporters = append(p.Reporters, ar)
+			for _, c := range r.Checks {
+				p.Checks = append(p.Checks, appCheckNow{Service: r.Service, Name: c.Name, OK: c.OK, Message: c.Message, Since: c.Since.UTC()})
+			}
+		}
+	}
+
+	w := windowOf(now, days)
+	type key struct{ project, name string }
+	totals := make(map[key]map[time.Time]int64)
+	var order []key
+	for _, c := range counters {
+		k := key{c.Project, c.Name}
+		if totals[k] == nil {
+			totals[k] = make(map[time.Time]int64)
+			order = append(order, k)
+		}
+		totals[k][midnight(c.Day)] += c.Total
+	}
+	for _, k := range order {
+		ac := appCounter{Name: k.name, Days: make([]countDay, 0, days)}
+		for d := 0; d < days; d++ {
+			date := w.first.AddDate(0, 0, d)
+			v := totals[k][date]
+			ac.Total += v
+			ac.Days = append(ac.Days, countDay{Date: date.Format(time.DateOnly), Total: v})
+		}
+		p := of(k.project)
+		p.Counters = append(p.Counters, ac)
+	}
+	for _, c := range changes {
+		p := of(c.Project)
+		p.Changes = append(p.Changes, appChange{Service: c.Service, Name: c.Name, At: c.At, OK: c.OK, Message: c.Message})
+	}
+
+	for _, p := range byName {
+		slices.SortFunc(p.Checks, func(x, y appCheckNow) int {
+			return cmp.Or(cmp.Compare(x.Service, y.Service), cmp.Compare(x.Name, y.Name))
+		})
+		slices.SortFunc(p.Counters, func(x, y appCounter) int { return cmp.Compare(x.Name, y.Name) })
+		answer.Projects = append(answer.Projects, *p)
+	}
+	slices.SortFunc(answer.Projects, func(x, y appProject) int { return cmp.Compare(x.Project, y.Project) })
+	return answer
+}

@@ -47,6 +47,7 @@ type Snapshot struct {
 	Checks      []Check              `json:"checks"`
 	Databases   *DatabaseServer      `json:"databases"`  // nil until sparkdb has been read
 	Storage     *DiskUse             `json:"storage"`    // nil until the proxy has measured
+	Apps        []AppReport          `json:"apps"`       // the apps' own reports
 	Conditions  []Condition          `json:"conditions"` // what's wrong with Spark itself
 	Attention   []string             `json:"attention"`  // problems for `sonar status`
 }
@@ -95,6 +96,28 @@ type DiskTotals struct {
 	Containers int64  `json:"containers"`
 	Volumes    int64  `json:"volumes"`
 	BuildCache int64  `json:"build_cache"`
+}
+
+// AppReport is one container's report: its usage counters and feature
+// checks, as last read.
+type AppReport struct {
+	ContainerID string            `json:"container_id"`
+	Project     string            `json:"project"`
+	Service     string            `json:"service"`
+	Container   string            `json:"container"`
+	ReadAt      *time.Time        `json:"read_at"` // the last good reading
+	Error       string            `json:"error,omitempty"`
+	StartedAt   time.Time         `json:"started_at"`
+	Counters    map[string]uint64 `json:"counters"`
+	Checks      []AppCheck        `json:"checks"`
+}
+
+// AppCheck is one of an app's features, whether it works, and since when.
+type AppCheck struct {
+	Name    string    `json:"name"`
+	OK      bool      `json:"ok"`
+	Message string    `json:"message"`
+	Since   time.Time `json:"since"`
 }
 
 // Condition levels.
