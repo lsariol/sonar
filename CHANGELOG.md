@@ -2,7 +2,7 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
-## v0.3.2 (unreleased)
+## v0.3.2 (2026-11-19)
 
 ### Added
 - Each outside check records where its time went: looking up the address, connecting, the TLS handshake, waiting for the site and reading the answer. A degraded stretch in `/v1/monitor/states` gives its slowest answer split that way, so a slow site can be told from a slow network, and `sonar states` says which phase took longest.
