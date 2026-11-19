@@ -13,8 +13,7 @@ import (
 	"github.com/lsariol/sonar/internal/store"
 )
 
-// The monitor:read answers: owner detail for Vista. Like the public ones,
-// each is filled field by field; nothing internal is served as is.
+// The monitor:read answers, for Vista; each is filled field by field, never served as is.
 
 // --- GET /v1/monitor/projects ---
 
@@ -88,8 +87,7 @@ type monitorCheck struct {
 	ConsecutiveFailures int        `json:"consecutive_failures"`
 }
 
-// buildMonitorProjects is every project as it is now; since comes from the
-// history.
+// buildMonitorProjects is every project now, with since from the history.
 func buildMonitorProjects(now time.Time, snap *snapshot.Snapshot, runs map[string]store.StateRun) monitorProjectsAnswer {
 	answer := monitorProjectsAnswer{Projects: []monitorProject{}}
 	if snap == nil {
@@ -207,8 +205,7 @@ type collectorAnswer struct {
 	Error  *string    `json:"error"`
 }
 
-// buildConditions is Spark's own state: the agent's conditions, plus the
-// agent itself when its snapshot is stale.
+// buildConditions is Spark's own state: the agent's conditions, plus the agent when its snapshot is stale.
 func buildConditions(now time.Time, snap *snapshot.Snapshot) conditionsAnswer {
 	answer := conditionsAnswer{State: "unknown", Conditions: []conditionAnswer{}, Collectors: []collectorAnswer{}, Attention: []string{}}
 	if snap == nil {
@@ -349,8 +346,7 @@ func toHostNow(h *snapshot.Host) *hostNow {
 	return n
 }
 
-// buildMonitorHost lays the host's buckets out as points, one per bucket in
-// the range, a gap where there's no data.
+// buildMonitorHost lays the host's buckets out as points, a gap where there's no data.
 func buildMonitorHost(now time.Time, name string, r historyRange, snap *snapshot.Snapshot, buckets []store.HostDetailBucket,
 	network []store.NetBucket, updates []store.Update) monitorHostAnswer {
 	from, to := historySpan(now, r)
@@ -460,8 +456,7 @@ func buildUsage(now time.Time, name string, r historyRange, buckets []store.Usag
 
 // --- GET /v1/monitor/states ---
 
-// mergeGap is the longest stretch without data that doesn't break a span:
-// the agent's own restart, or a short pause, isn't news.
+// mergeGap is the longest gap that doesn't break a span, such as the agent's own restart.
 const mergeGap = 5 * time.Minute
 
 type statesAnswer struct {
@@ -477,8 +472,7 @@ type projectStates struct {
 	Spans   []stateSpan `json:"spans"`
 }
 
-// stateSpan is a stretch in one state. Unknown spans are gaps in the
-// history longer than mergeGap.
+// stateSpan is a stretch in one state; unknown spans are gaps longer than mergeGap.
 type stateSpan struct {
 	State           string       `json:"state"`
 	Start           time.Time    `json:"start"`
@@ -503,8 +497,7 @@ type checkCause struct {
 	LastError *string `json:"last_error"`
 }
 
-// buildStates turns runs of minutes into each project's spans, joined
-// across short gaps, with what wasn't up during each.
+// buildStates turns runs of minutes into spans, joined across short gaps, with what wasn't up in each.
 func buildStates(now time.Time, name string, length time.Duration, spans []store.Span, services []store.ServiceTrouble, checks []store.CheckTrouble) statesAnswer {
 	to := now.UTC().Truncate(time.Minute).Add(time.Minute)
 	from := to.Add(-length)
@@ -588,8 +581,7 @@ func buildStates(now time.Time, name string, length time.Duration, spans []store
 	return answer
 }
 
-// statesRanges are the ranges /v1/monitor/states answers: the minutes are
-// kept for 30 days.
+// statesRanges are /v1/monitor/states's ranges; the minutes are kept 30 days.
 var statesRanges = map[string]time.Duration{
 	"1h":  time.Hour,
 	"24h": 24 * time.Hour,
@@ -680,8 +672,7 @@ func buildDatabases(now time.Time, name string, r historyRange, snap *snapshot.S
 
 // --- GET /v1/monitor/disk ---
 
-// diskRanges are the ranges /v1/monitor/disk answers: measurements are kept
-// for 380 days, one every 30 minutes.
+// diskRanges are /v1/monitor/disk's ranges; measurements are kept 380 days.
 var diskRanges = map[string]historyRange{
 	"7d":   {7 * 24 * time.Hour, 6 * time.Hour},
 	"30d":  {30 * 24 * time.Hour, 24 * time.Hour},
@@ -776,8 +767,7 @@ func buildDisk(now time.Time, name string, r historyRange, snap *snapshot.Snapsh
 
 // --- GET /v1/monitor/traffic ---
 
-// trafficRanges are the ranges /v1/monitor/traffic answers: Cloudflare's
-// hours are kept for 380 days.
+// trafficRanges are /v1/monitor/traffic's ranges; Cloudflare's hours are kept 380 days.
 var trafficRanges = map[string]historyRange{
 	"24h":  {24 * time.Hour, time.Hour},
 	"7d":   {7 * 24 * time.Hour, 6 * time.Hour},

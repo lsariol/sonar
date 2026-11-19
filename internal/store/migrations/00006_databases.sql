@@ -1,5 +1,4 @@
--- Each database on sparkdb, once a minute: its client connections (every
--- project shares sparkdb's limit) and its size. Read as sonar_monitor.
+-- Each database's connections and size on sparkdb, once a minute.
 
 -- +goose Up
 CREATE TABLE sonar.database_minutes (

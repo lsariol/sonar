@@ -24,8 +24,7 @@ var errNotFound = errors.New("not found")
 // idPattern is a full container ID, checked before one goes into a path.
 var idPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-// docker is a minimal Docker Engine API client over its socket: the five read
-// calls the proxy makes, and nothing else.
+// docker is a minimal Docker API client: the five read calls the proxy makes, nothing else.
 type docker struct {
 	base string
 	http *http.Client
@@ -63,8 +62,7 @@ func (l listed) name() string {
 	return strings.TrimPrefix(l.Names[0], "/")
 }
 
-// inspected holds the inspect fields Sonar uses. Fields not declared here,
-// such as Config.Env, Config.Cmd and Mounts, are never read into memory.
+// inspected holds the inspect fields Sonar uses; others, such as Config.Env, are never read.
 type inspected struct {
 	ID           string `json:"Id"`
 	Name         string `json:"Name"`
@@ -245,9 +243,7 @@ func toContainer(c inspected) containers.Container {
 	return out
 }
 
-// toStats copies one container's counters. Memory in use leaves out the page
-// cache, as `docker stats` does (inactive_file on cgroup v2,
-// total_inactive_file on v1).
+// toStats copies a container's counters; memory leaves out the page cache, as `docker stats` does.
 func toStats(id string, s rawStats) containers.Stats {
 	out := containers.Stats{
 		ID:          id,
@@ -284,8 +280,7 @@ func toStats(id string, s rawStats) containers.Stats {
 	return out
 }
 
-// parseTime reads one of Docker's timestamps; Docker's zero time and
-// anything unreadable become the zero time.
+// parseTime reads a Docker timestamp; Docker's zero time and bad input are the zero time.
 func parseTime(s string) time.Time {
 	t, err := time.Parse(time.RFC3339Nano, s)
 	if err != nil || t.Year() <= 1 {

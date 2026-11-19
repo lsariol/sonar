@@ -1,5 +1,4 @@
-// Package store is Sonar's history in Postgres (sonar_db on sparkdb): the
-// embedded migrations, the agent's writes, and the reads the API and CLI use.
+// Package store is Sonar's history in Postgres: migrations, the agent's writes, the API's reads.
 package store
 
 import (
@@ -17,8 +16,7 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
-// Connect opens a pool for connString and checks that the database answers.
-// key is the Cove key the string came from, for error messages.
+// Connect opens a pool and checks the database answers; key names the Cove key for errors.
 func Connect(ctx context.Context, connString, key string) (*Store, error) {
 	cfg, err := pgxpool.ParseConfig(connString)
 	if err != nil {
@@ -50,8 +48,7 @@ func (s *Store) Close() {
 	s.pool.Close()
 }
 
-// IsUnreachable reports whether err means the database couldn't be reached at
-// all (down, restarting, wrong host), as opposed to an error from it.
+// IsUnreachable reports whether the database couldn't be reached at all, not an error from it.
 func IsUnreachable(err error) bool {
 	var connectErr *pgconn.ConnectError
 	if !errors.As(err, &connectErr) {

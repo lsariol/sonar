@@ -10,15 +10,13 @@ import (
 	"github.com/lsariol/sonar/internal/state"
 )
 
-// StateRun is where a project's current state began, as far as the history
-// goes back.
+// StateRun is where a project's current state began, as far as the history goes.
 type StateRun struct {
 	LastOther *time.Time // the last minute with another known state; nil when none is kept
 	First     *time.Time // the project's first kept minute; nil without history
 }
 
-// StateRuns returns, for each project and its current state, the last minute
-// it had another state and its first kept minute.
+// StateRuns returns, per project, the last minute it was in another state and its first kept minute.
 func (s *Store) StateRuns(ctx context.Context, current map[string]state.State) (map[string]StateRun, error) {
 	projects := make([]string, 0, len(current))
 	states := make([]int16, 0, len(current))
@@ -48,8 +46,7 @@ func (s *Store) StateRuns(ctx context.Context, current map[string]state.State) (
 	return out, nil
 }
 
-// Span is a run of minutes in which a project had one state, with no
-// minute missing.
+// Span is an unbroken run of minutes in which a project had one state.
 type Span struct {
 	Project    string
 	State      state.State
@@ -57,8 +54,7 @@ type Span struct {
 	Minutes    int
 }
 
-// StateSpans returns every project's runs of one state from from to to,
-// by project, oldest first.
+// StateSpans returns every project's spans from from to to, by project, oldest first.
 func (s *Store) StateSpans(ctx context.Context, from, to time.Time) ([]Span, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT project, state, min(minute), max(minute) + interval '1 minute', count(*)
@@ -91,8 +87,7 @@ type ServiceTrouble struct {
 	State            state.State
 }
 
-// ServiceTroubles returns the minutes from from to to in which a counted
-// service was degraded, down or updating.
+// ServiceTroubles returns the minutes a counted service was degraded, down or updating.
 func (s *Store) ServiceTroubles(ctx context.Context, from, to time.Time) ([]ServiceTrouble, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT s.project, s.service, m.minute, m.state
@@ -124,8 +119,7 @@ type CheckTrouble struct {
 	LastError             string
 }
 
-// CheckTroubles returns the minutes from from to to in which an outside
-// check failed, was slow, or wasn't up.
+// CheckTroubles returns the minutes an outside check failed, was slow, or wasn't up.
 func (s *Store) CheckTroubles(ctx context.Context, from, to time.Time) ([]CheckTrouble, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT s.project, s.service, c.url, c.minute, c.state, c.failures, c.slow, coalesce(c.last_error, '')
@@ -159,9 +153,7 @@ type UsageBucket struct {
 	BlkRead, BlkWrite int64
 }
 
-// ServiceUsage adds each service's minutes from from to to into buckets of
-// the given size, aligned to UTC; project "" means every project. Buckets
-// without minutes aren't returned.
+// ServiceUsage adds each service's minutes into buckets, for one project or ("") all.
 func (s *Store) ServiceUsage(ctx context.Context, from, to time.Time, bucket time.Duration, project string) ([]UsageBucket, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT s.project, s.service, date_bin($3, m.minute, TIMESTAMPTZ '2000-01-01 00:00:00+00'), count(*),
@@ -188,8 +180,7 @@ func (s *Store) ServiceUsage(ctx context.Context, from, to time.Time, bucket tim
 	return out, nil
 }
 
-// HostDetailBucket is the host over one stretch of a chart, with everything
-// the minutes keep.
+// HostDetailBucket is the host over one stretch of a chart, with everything the minutes keep.
 type HostDetailBucket struct {
 	HostBucket
 	MemUsedAvg, MemTotal *int64
@@ -232,8 +223,7 @@ func (s *Store) HostDetail(ctx context.Context, from, to time.Time, bucket time.
 	return out, nil
 }
 
-// NetBucket is the bytes one host interface moved over one stretch of a
-// chart.
+// NetBucket is the bytes one host interface moved over one stretch of a chart.
 type NetBucket struct {
 	Interface        string
 	Start            time.Time
@@ -241,9 +231,7 @@ type NetBucket struct {
 	RxBytes, TxBytes int64
 }
 
-// HostNetwork adds each interface's minutes from from to to into buckets of
-// the given size, aligned to UTC, by interface. Buckets without minutes
-// aren't returned.
+// HostNetwork adds each interface's minutes into buckets of the given size, aligned to UTC.
 func (s *Store) HostNetwork(ctx context.Context, from, to time.Time, bucket time.Duration) ([]NetBucket, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT interface, date_bin($3, minute, TIMESTAMPTZ '2000-01-01 00:00:00+00'), count(*),

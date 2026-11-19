@@ -4,8 +4,7 @@ package proxy
 
 import "io/fs"
 
-// fileID tells hard links to one file apart; elsewhere than Linux they
-// aren't told apart.
+// fileID tells hard links apart; outside Linux they aren't.
 type fileID struct{}
 
 // allocated is a file's length: outside Linux, Sonar doesn't read blocks.

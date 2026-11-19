@@ -38,9 +38,7 @@ func (f *fakeStore) WriteMinute(ctx context.Context, m store.Minute) error {
 func (f *fakeStore) Rollup(context.Context, time.Time) error         { return nil }
 func (f *fakeStore) Prune(context.Context, time.Time) (int64, error) { return 0, nil }
 
-// aMinute runs one minute of readings starting at start: 12 host samples,
-// 6 container readings (each 5e9 ns of CPU apart: half a core) and 2 checks,
-// and a snapshot after each host sample.
+// aMinute runs a minute of readings: 12 host samples, 6 container readings at half a core, 2 checks.
 func aMinute(t *testing.T, a *Agent, clk *clock, d *fakeDocker, from time.Time, cpuFrom uint64) {
 	t.Helper()
 	plop := d.list[0].ID
@@ -152,8 +150,7 @@ func TestFlushRetriesInOrder(t *testing.T) {
 	}
 }
 
-// TestMinutesCloseWithoutDatabase: with sparkdb unreachable from the start,
-// finished minutes still close and the queue stays at its cap.
+// TestMinutesCloseWithoutDatabase: minutes close without sparkdb, and the queue stays at its cap.
 func TestMinutesCloseWithoutDatabase(t *testing.T) {
 	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", "")}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})
@@ -167,8 +164,7 @@ func TestMinutesCloseWithoutDatabase(t *testing.T) {
 	}
 }
 
-// TestNoHistoryWhileBlind: when Docker stops answering, the page keeps the
-// last state for a while, but the history doesn't record it as observed.
+// TestNoHistoryWhileBlind: without Docker the page keeps the last state, but the history has a gap.
 func TestNoHistoryWhileBlind(t *testing.T) {
 	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", "")}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})
@@ -192,8 +188,7 @@ func TestNoHistoryWhileBlind(t *testing.T) {
 	}
 }
 
-// TestFlushOnStop: stopping the agent writes the queue and the current,
-// partial minute.
+// TestFlushOnStop: stopping writes the queue and the current, partial minute.
 func TestFlushOnStop(t *testing.T) {
 	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", "")}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})
@@ -232,8 +227,7 @@ func TestPendingCap(t *testing.T) {
 	}
 }
 
-// TestWritesToDatabase runs a minute through to a real database when
-// scripts/test-db.sh is up.
+// TestWritesToDatabase runs a minute into a real database when scripts/test-db.sh is up.
 func TestWritesToDatabase(t *testing.T) {
 	migrator, app := os.Getenv("SONAR_TEST_DATABASE_MIGRATOR_URL"), os.Getenv("SONAR_TEST_DATABASE_URL")
 	if migrator == "" || app == "" {

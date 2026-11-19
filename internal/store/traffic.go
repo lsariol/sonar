@@ -15,8 +15,7 @@ type TrafficBucket struct {
 	Requests, Errors, Bytes int64
 }
 
-// TrafficHistory adds each hostname's hours from from to to into buckets of
-// the given size, aligned to UTC, by hostname.
+// TrafficHistory adds each hostname's hours into buckets of the given size, aligned to UTC.
 func (s *Store) TrafficHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]TrafficBucket, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT host, date_bin($3, hour, TIMESTAMPTZ '2000-01-01 00:00:00+00'),

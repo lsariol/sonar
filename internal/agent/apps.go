@@ -46,9 +46,7 @@ type reporter struct {
 	port                       int
 }
 
-// sampleApps reads every report, files how much each counter grew and
-// each check that changed. A container that doesn't answer keeps its last
-// counters, so nothing is counted twice when it answers again.
+// sampleApps reads every report and files counter growth and changed checks; a failed reading counts nothing.
 func (a *Agent) sampleApps(ctx context.Context) {
 	a.mu.Lock()
 	var list []reporter
@@ -104,12 +102,7 @@ func (a *Agent) sampleApps(ctx context.Context) {
 	a.record(appsCollector, nil)
 }
 
-// addCounters files how much each counter grew since the last reading. A
-// new started_at, or a counter that went down, means the app started over,
-// and a counter that wasn't there before was created since: all of their
-// value is new. The first reading of a container counts only when the app
-// started moments ago (a deploy); otherwise it sets the baseline.
-// Callers hold a.mu.
+// addCounters files each counter's growth: a restart or a new counter counts in full, a first reading only after a deploy.
 func (a *Agent) addCounters(b *bucket, st *appState, rep report.Report, now time.Time) {
 	first := st.counters == nil
 	fresh := first && now.Sub(rep.StartedAt) <= 2*appsEvery
@@ -134,8 +127,7 @@ func (a *Agent) addCounters(b *bucket, st *appState, rep report.Report, now time
 	}
 }
 
-// addChecks notes each check's state, and files the ones that changed (or
-// are new). Callers hold a.mu.
+// addChecks notes each check's state and files the ones that changed or are new; callers hold a.mu.
 func (a *Agent) addChecks(b *bucket, st *appState, rep report.Report, now time.Time) {
 	current := make(map[string]appCheck, len(rep.Checks))
 	for _, c := range rep.Checks {
@@ -176,8 +168,7 @@ func (a *Agent) buildApps() []snapshot.AppReport {
 	return out
 }
 
-// resumeApps picks up the previous agent's last reports, so counting goes on
-// where it stopped and checks keep when they changed. Callers hold a.mu.
+// resumeApps takes up the previous agent's last reports, so counting goes on where it stopped; callers hold a.mu.
 func (a *Agent) resumeApps(snap snapshot.Snapshot) {
 	for _, r := range snap.Apps {
 		if r.ReadAt == nil {

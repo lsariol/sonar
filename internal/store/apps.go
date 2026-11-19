@@ -15,8 +15,7 @@ type AppCounterDay struct {
 	Total         int64
 }
 
-// AppCounterDays returns every counter's daily totals from one UTC date to
-// another, both included, by project and name.
+// AppCounterDays returns every counter's daily totals between two UTC dates, both included.
 func (s *Store) AppCounterDays(ctx context.Context, from, to time.Time) ([]AppCounterDay, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT project, name, day, total

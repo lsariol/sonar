@@ -8,8 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// DatabaseUse is sparkdb as a whole and each database on it, read as
-// sonar_monitor (pg_read_all_stats).
+// DatabaseUse is sparkdb and each database on it, read as sonar_monitor.
 type DatabaseUse struct {
 	MaxConnections int // the server's max_connections
 	Connections    int // client connections to every database
@@ -68,8 +67,7 @@ type DatabaseBucket struct {
 	SizeBytes          int64 // the last reading in the bucket
 }
 
-// DatabaseHistory adds each database's minutes from from to to into buckets
-// of the given size, aligned to UTC, by database.
+// DatabaseHistory adds each database's minutes into buckets of the given size, aligned to UTC.
 func (s *Store) DatabaseHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]DatabaseBucket, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT database, date_bin($3, minute, TIMESTAMPTZ '2000-01-01 00:00:00+00'), count(*),

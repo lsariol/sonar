@@ -55,8 +55,7 @@ func (c *CLI) days(ctx context.Context, args []string) error {
 	return nil
 }
 
-// takeValue removes a flag and its value ("--days 7" or "--days=7") from
-// args.
+// takeValue removes a flag and its value ("--days 7" or "--days=7") from args.
 func takeValue(args []string, flag string) (string, []string, error) {
 	value := ""
 	rest := make([]string, 0, len(args))

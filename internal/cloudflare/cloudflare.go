@@ -1,6 +1,4 @@
-// Package cloudflare reads traffic per hostname from Cloudflare's GraphQL
-// Analytics API: requests, 5xx answers and bytes, by hour. It only reads;
-// the token needs Zone Read and Analytics Read, nothing else.
+// Package cloudflare reads each hostname's requests, 5xx answers and bytes by hour, read-only.
 package cloudflare
 
 import (
@@ -103,8 +101,7 @@ type group struct {
 	} `json:"dimensions"`
 }
 
-// Traffic returns each hostname's traffic in zone, hour by hour, from from to
-// to (whole hours).
+// Traffic returns each hostname's traffic in zone, by hour, from from to to.
 func (c *Client) Traffic(ctx context.Context, zone string, from, to time.Time) ([]Hour, error) {
 	body, err := json.Marshal(map[string]any{
 		"query": trafficQuery,
@@ -173,8 +170,7 @@ func messages(errs []apiError) string {
 	return strings.Join(parts, "; ")
 }
 
-// do sends one request and decodes the JSON answer into v. The token is
-// never part of an error.
+// do sends one request and decodes the answer into v; the token never appears in an error.
 func (c *Client) do(ctx context.Context, method, path string, body []byte, v any) error {
 	req, err := http.NewRequestWithContext(ctx, method, c.base+path, bytes.NewReader(body))
 	if err != nil {

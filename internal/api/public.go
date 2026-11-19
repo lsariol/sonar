@@ -12,8 +12,7 @@ import (
 	"github.com/lsariol/sonar/internal/store"
 )
 
-// excluded projects never appear in public answers; every other project
-// with a compose project name does.
+// excluded projects never appear in public answers.
 var excluded = []string{"sparkdb", "cloudflared", "lucassariol-web"}
 
 // IsPublic reports whether a project may appear in status:read answers.
@@ -21,14 +20,12 @@ func IsPublic(project string) bool {
 	return project != "" && !slices.Contains(excluded, project)
 }
 
-// anyProject is the monitor:read view: every project with a compose project
-// name.
+// anyProject is the monitor:read view: every project with a compose project name.
 func anyProject(project string) bool {
 	return project != ""
 }
 
-// The public answers. Each is filled field by field from Sonar's data; nothing
-// is copied across whole, so a field added inside Sonar never leaks out.
+// The public answers, each filled field by field so a field added inside Sonar never leaks out.
 
 type statusAnswer struct {
 	GeneratedAt *time.Time      `json:"generated_at"`
@@ -53,8 +50,7 @@ type projectStatus struct {
 	Days       []DayState `json:"days"`
 }
 
-// Uptime is the share of observed time a project answered, and how much of
-// the window was observed.
+// Uptime is the share of observed time a project answered, and how much was observed.
 type Uptime struct {
 	Pct         *float64 `json:"pct"` // nil under half coverage
 	CoveragePct float64  `json:"coverage_pct"`
@@ -83,8 +79,7 @@ type historyAnswer struct {
 	Updates       []publicUpdate `json:"updates"`
 }
 
-// publicUpdate is a deploy as the graph marks it: which project, when, how
-// long, between which versions, and whether it came up.
+// publicUpdate is a deploy as the graph marks it.
 type publicUpdate struct {
 	Project string    `json:"project"`
 	Started time.Time `json:"started"`
@@ -126,8 +121,7 @@ func publicState(s state.State) string {
 // releaseVersion matches a release tag such as v1.3.0, 1.3.0 or v1.3.0-rc.1.
 var releaseVersion = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$`)
 
-// publicVersion is v when it's a release version, else nil, so commit IDs,
-// dev builds and empty labels never go out.
+// publicVersion is v when it's a release version, else nil, so commit IDs and dev builds never go out.
 func publicVersion(v string) *string {
 	if len(v) > 64 || !releaseVersion.MatchString(v) {
 		return nil
@@ -135,9 +129,7 @@ func publicVersion(v string) *string {
 	return &v
 }
 
-// projectVersion is the version a project's counted services run; a service
-// being replaced still runs the one it's replacing. nil when a container has
-// none, or when they disagree.
+// projectVersion is the version every counted service runs, the old one during a deploy; nil when they disagree.
 func projectVersion(p snapshot.Project) *string {
 	running := ""
 	for _, s := range p.Services {
@@ -166,11 +158,7 @@ func sameVersion(a, b *string) bool {
 	return a != nil && b != nil && *a == *b
 }
 
-// mergeUpdates turns updates of services into updates of projects: different
-// services of one project replaced in the same deploy (overlapping, or within
-// 30 s) become one, which didn't come up if any of them didn't, and keeps a
-// version only if they all agree. Two updates of one service are always two
-// (a failed deploy, then its rollback). Only projects include accepts are kept.
+// mergeUpdates joins one deploy's services into one project update; one service's two updates stay two.
 func mergeUpdates(updates []store.Update, include func(string) bool) []publicUpdate {
 	sorted := slices.Clone(updates)
 	slices.SortFunc(sorted, func(a, b store.Update) int {
@@ -210,8 +198,7 @@ func mergeUpdates(updates []store.Update, include func(string) bool) []publicUpd
 	return out
 }
 
-// window is a stretch of whole UTC days ending today, with today counted up
-// to now.
+// window is a stretch of whole UTC days ending today, today counted up to now.
 type window struct {
 	first   time.Time // the first day, at midnight UTC
 	days    int
@@ -229,8 +216,7 @@ func midnight(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
-// uptimeOver is uptime and coverage from summed minute counts over a window
-// of the given number of minutes.
+// uptimeOver is uptime and coverage from summed minute counts over a window.
 func uptimeOver(up, updating, degraded, down, minutes int) Uptime {
 	observed := up + updating + degraded + down
 	u := Uptime{CoveragePct: round(pct(observed, minutes), 1)}
@@ -243,9 +229,7 @@ func uptimeOver(up, updating, degraded, down, minutes int) Uptime {
 	return u
 }
 
-// ProjectDays builds a project's strip of days, oldest first, from its daily
-// rows and its updates, and its uptime over the last 30 and 90 days. The CLI
-// shows the same figures, so the status page and `sonar days` always agree.
+// ProjectDays builds a project's strip of days and its 30- and 90-day uptime, for the API and the CLI alike.
 func ProjectDays(now time.Time, days int, rows []store.DayCounts, updates []store.Update) (strip []DayState, up30, up90 Uptime) {
 	byDay := make(map[time.Time]store.DayCounts, len(rows))
 	for _, r := range rows {
@@ -292,9 +276,7 @@ func ProjectDays(now time.Time, days int, rows []store.DayCounts, updates []stor
 	return strip, sum(windowOf(now, 30)), sum(windowOf(now, 90))
 }
 
-// buildStatus turns the snapshot and the daily rows into the status of the
-// projects include accepts: IsPublic for status:read, anyProject for
-// monitor:read.
+// buildStatus is the status of the projects include accepts: IsPublic, or anyProject for the owner.
 func buildStatus(now time.Time, snap *snapshot.Snapshot, days int, rows []store.DayCounts, updates []store.Update, response map[string]int, include func(string) bool) statusAnswer {
 	answer := statusAnswer{Overall: overallStatus{State: "unknown"}, Projects: []projectStatus{}}
 	fresh := snap != nil && snap.Fresh(now)
@@ -362,15 +344,13 @@ var historyRanges = map[string]historyRange{
 	"30d": {30 * 24 * time.Hour, 2 * time.Hour},
 }
 
-// historySpan is the range's window: it ends with the bucket holding now, so
-// the newest, still-filling bucket is the last point.
+// historySpan is the range's window, ending with the bucket holding now.
 func historySpan(now time.Time, r historyRange) (from, to time.Time) {
 	to = now.UTC().Truncate(r.bucket).Add(r.bucket)
 	return to.Add(-r.length), to
 }
 
-// buildHistory lays the buckets out as points, one per bucket in the range;
-// a bucket without data is a gap (null values).
+// buildHistory lays the buckets out as points; a bucket without data is a gap.
 func buildHistory(now time.Time, name string, r historyRange, buckets []store.HostBucket, updates []store.Update) historyAnswer {
 	from, to := historySpan(now, r)
 	answer := historyAnswer{Range: name, From: from, To: to, BucketSeconds: int(r.bucket / time.Second),

@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// FuzzStats: no stats answer from Docker crashes the conversion, and memory in
-// use never exceeds Docker's usage figure.
+// FuzzStats: no stats answer crashes the conversion, and memory never exceeds Docker's usage.
 func FuzzStats(f *testing.F) {
 	f.Add(`{"memory_stats":{"usage":100,"stats":{"inactive_file":30}},"networks":{"eth0":{"rx_bytes":1}}}`)
 	f.Add(`{"memory_stats":{"usage":10,"stats":{"inactive_file":300}}}`)

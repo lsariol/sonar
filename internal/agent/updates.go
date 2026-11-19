@@ -10,13 +10,10 @@ import (
 )
 
 const (
-	// updateLimit is how long a service may be updating before the update
-	// counts as timed out. Lighthouse gives a deploy the same 2 minutes to
-	// become healthy before it rolls back (its deploy.Timeouts.Verify).
+	// updateLimit is when an update times out: Lighthouse's own wait for a deploy to be healthy.
 	updateLimit = 2 * time.Minute
 
-	// forgetAfter is how long a service that's gone is remembered, so a
-	// replacement that's slow to appear still counts as an update.
+	// forgetAfter is how long a gone service is remembered, so a slow replacement still counts as an update.
 	forgetAfter = 10 * time.Minute
 )
 
@@ -27,8 +24,7 @@ const (
 	updateTimedOut = "timed out"
 )
 
-// seenService is what the agent knows of a service's containers: the settled
-// ones (its baseline), and newcomers that appeared since.
+// seenService is a service's settled containers (its baseline) and the newcomers since.
 type seenService struct {
 	settled  map[string]string    // container ID → its com.mobasity.version
 	newcomer map[string]time.Time // container ID → first seen
@@ -42,21 +38,11 @@ type update struct {
 	newIDs   map[string]bool
 }
 
-// trackUpdates notices deploys from the container list alone. Docker Compose
-// creates the new container first (under a temporary name, beside the old
-// one), then stops the old one, removes it and starts the new one. So: a
-// settled container leaving (stopped or removed) while a newcomer exists is
-// an update, which lasts until the newcomers are ready, or 2 minutes. A
-// newcomer that comes up while every settled container keeps running is a
-// replica being added. A container restarting in place keeps its ID, so a
-// crash is never an update. A service that appears with only just-created
-// containers, once the agent has a baseline, is a first deploy: an update
-// with no version before it. Callers hold a.mu.
+// trackUpdates tells deploys from crashes by Compose's order (new container first, then the old one leaves); callers hold a.mu.
 func (a *Agent) trackUpdates(now time.Time) {
 	byService := make(map[serviceKey][]containers.Container)
 	for _, c := range a.containers {
-		// One-off jobs get new containers every run; only long-running
-		// services are updated.
+		// One-off jobs get new containers every run; only long-running services are updated.
 		if c.Project != "" && c.RestartPolicy != "no" && c.RestartPolicy != "" {
 			k := serviceKey{c.Project, c.Service}
 			byService[k] = append(byService[k], c)
@@ -123,9 +109,7 @@ func (a *Agent) trackUpdates(now time.Time) {
 	}
 }
 
-// resume picks up what the previous agent saw from the snapshot it left, so a
-// deploy that replaced the agent itself, or ran while it was away, is still
-// an update.
+// resume reads the previous agent's snapshot, so a deploy that replaced the agent is still an update.
 func (a *Agent) resume() {
 	snap, err := snapshot.Read(a.opts.StateDir)
 	if err != nil {
@@ -137,10 +121,7 @@ func (a *Agent) resume() {
 	a.resumeFrom(snap, a.opts.Now())
 }
 
-// resumeFrom seeds each service's settled containers from snap, when it's at
-// most 10 minutes old. A deploy's new containers (created but not started,
-// or newer than an update in progress) are left out, so the next reading
-// sees them as newcomers. Callers hold a.mu.
+// resumeFrom seeds settled containers from a snapshot under 10 minutes old, leaving a deploy's new ones out; callers hold a.mu.
 func (a *Agent) resumeFrom(snap snapshot.Snapshot, now time.Time) {
 	if age := now.Sub(snap.GeneratedAt); age < 0 || age > forgetAfter {
 		return
@@ -178,8 +159,7 @@ func versions(cs []containers.Container) map[string]string {
 	return v
 }
 
-// justCreated reports whether every container is younger than an update can
-// be. A service that only looks new, because the agent is, has older ones.
+// justCreated reports whether every container is younger than an update can be.
 func justCreated(cs []containers.Container, now time.Time) bool {
 	for _, c := range cs {
 		if c.CreatedAt.IsZero() || now.Sub(c.CreatedAt) >= updateLimit {
@@ -189,8 +169,7 @@ func justCreated(cs []containers.Container, now time.Time) bool {
 	return true
 }
 
-// leavingVersion reports whether a settled container is gone or no longer
-// running, and its version.
+// leavingVersion reports whether a settled container is gone or stopped, and its version.
 func leavingVersion(settled map[string]string, cur map[string]containers.Container) (string, bool) {
 	for id, version := range settled {
 		if c, ok := cur[id]; !ok || c.State != "running" {
@@ -200,8 +179,7 @@ func leavingVersion(settled map[string]string, cur map[string]containers.Contain
 	return "", false
 }
 
-// newUpdate starts an update to the newcomers, dated from the earliest one's
-// creation when Docker gives it.
+// newUpdate starts an update to the newcomers, dated from the earliest one's creation.
 func newUpdate(now time.Time, from string, newcomers map[string]time.Time, cur map[string]containers.Container) *update {
 	u := &update{started: now.UTC(), from: from, newIDs: make(map[string]bool)}
 	for id, first := range newcomers {
@@ -219,8 +197,7 @@ func newUpdate(now time.Time, from string, newcomers map[string]time.Time, cur m
 	return u
 }
 
-// settleReplicas moves newcomers that are up, beside settled containers that
-// all still run, into the baseline: they were replicas being added.
+// settleReplicas moves up newcomers beside running settled containers into the baseline: replicas added.
 func settleReplicas(s *seenService, cur map[string]containers.Container, now time.Time) {
 	for id, first := range s.newcomer {
 		c := cur[id]
@@ -231,9 +208,7 @@ func settleReplicas(s *seenService, cur map[string]containers.Container, now tim
 	}
 }
 
-// updateProgress is "" while the update goes on: every counted container is
-// up, or new and still getting ready, or an old one on its way out. It's the
-// outcome once the update is over.
+// updateProgress is "" while the update goes on, and its outcome once it's over.
 func updateProgress(cs []containers.Container, u *update, now time.Time) string {
 	if now.Sub(u.started) > updateLimit {
 		return updateTimedOut
@@ -259,8 +234,7 @@ func updateProgress(cs []containers.Container, u *update, now time.Time) string 
 	return updateOK
 }
 
-// serviceState is a service's state at now: Updating while an update is in
-// progress, otherwise what its containers say. Callers hold a.mu.
+// serviceState is Updating during an update, otherwise what the containers say; callers hold a.mu.
 func (a *Agent) serviceState(k serviceKey, cs []containers.Container, now time.Time) (state.State, bool) {
 	st, counted := state.Service(cs, now)
 	if counted && a.updates[k] != nil {

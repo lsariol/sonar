@@ -1,21 +1,4 @@
-// Package report is the contract between Sonar and the apps it watches: an
-// app serves its usage counters and feature checks at Path on its report
-// port (the com.mobasity.report-port label), on the spark network, without a
-// token, and Sonar reads them once a minute.
-//
-//	GET http://<container>:<port>/report/v1
-//	{
-//	  "started_at": "2026-11-18T10:00:00Z",
-//	  "counters": {"games_completed": 1234},
-//	  "checks": [{"name": "twitch_chat", "ok": true, "message": "connected to 3 channels"}]
-//	}
-//
-// Counters are running totals since started_at (normally when the process
-// started): they only grow, and start over from zero with a new started_at.
-// Sonar keeps how much each grew per minute and per day. A check says
-// whether one of the app's own features works; Sonar keeps when it changed.
-// Nothing in a report may be a secret or someone's data: it's served
-// without a token.
+// Package report is the contract for the reports apps serve to Sonar, described in the README.
 package report
 
 import (

@@ -13,13 +13,11 @@ import (
 const (
 	trafficCollector = "cloudflare"
 
-	// trafficEvery is how often the agent reads Cloudflare; each reading
-	// covers the last trafficLookback, so Cloudflare's late data fills in.
+	// trafficEvery is how often the agent reads Cloudflare, each time the last trafficLookback.
 	trafficEvery    = 15 * time.Minute
 	trafficLookback = 3 * time.Hour
 
-	// trafficBackfill is how far back the agent reads when it starts, a day
-	// per query, so a new Sonar has a week of traffic at once.
+	// trafficBackfill is how far back the first reading goes, so a new Sonar has a week of traffic.
 	trafficBackfill = 7 * 24 * time.Hour
 	trafficTimeout  = 2 * time.Minute
 )
@@ -30,8 +28,7 @@ type Traffic interface {
 	Traffic(ctx context.Context, zone string, from, to time.Time) ([]cloudflare.Hour, error)
 }
 
-// sampleTraffic reads every zone's traffic by hour and files it. The first
-// reading goes back trafficBackfill.
+// sampleTraffic reads every zone's traffic by hour and files it; the first reading backfills.
 func (a *Agent) sampleTraffic(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, trafficTimeout)
 	defer cancel()
@@ -59,8 +56,7 @@ func (a *Agent) sampleTraffic(ctx context.Context) {
 	}
 }
 
-// readTraffic reads every zone from from to to, a day per query. A zone that
-// fails doesn't stop the others.
+// readTraffic reads every zone a day per query; a zone that fails doesn't stop the others.
 func (a *Agent) readTraffic(ctx context.Context, from, to time.Time) ([]store.TrafficHour, error) {
 	zones, err := a.opts.Traffic.Zones(ctx)
 	if err != nil {

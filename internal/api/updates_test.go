@@ -55,8 +55,7 @@ func TestMergeUpdates(t *testing.T) {
 		t.Errorf("others = %+v %+v", lys, later)
 	}
 
-	// Back-to-back deploys of one service (seen live): a failed one, then its
-	// rollback 10 s later, stay two markers.
+	// A failed deploy and its rollback 10 s later (seen live) stay two markers.
 	back := mergeUpdates([]store.Update{
 		u("plop", "web", 0, 40*time.Second, "failed"),
 		u("plop", "web", 50*time.Second, 20*time.Second, "ok"),
@@ -66,8 +65,7 @@ func TestMergeUpdates(t *testing.T) {
 	}
 }
 
-// TestDayMinutes: a day's counts add up, agree with its uptime, and are 0
-// (never null) on a day with nothing observed.
+// TestDayMinutes: a day's counts add up, agree with its uptime, and are 0, never null, without data.
 func TestDayMinutes(t *testing.T) {
 	rows := []store.DayCounts{{Project: "plop", Day: midnight(now).AddDate(0, 0, -1), Up: 1400, Updating: 10, Degraded: 18, Down: 12}}
 	strip, _, _ := ProjectDays(now, 3, rows, nil)

@@ -8,8 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// DiskPoint is one project's disk use at the last measurement of a stretch
-// of a chart. Project "" is the totals.
+// DiskPoint is a project's last measurement in a stretch of a chart; project "" is the totals.
 type DiskPoint struct {
 	Project                                 string
 	Start, MeasuredAt                       time.Time
@@ -19,9 +18,7 @@ type DiskPoint struct {
 	BuildCacheBytes                         int64 // totals only
 }
 
-// DiskHistory returns, for each project and for the totals, the last
-// measurement in each bucket of the given size from from to to, aligned to
-// UTC; the totals come first.
+// DiskHistory returns the last measurement per bucket, the totals first, then each project.
 func (s *Store) DiskHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]DiskPoint, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT DISTINCT ON (b) '', date_bin($3, measured_at, TIMESTAMPTZ '2000-01-01 00:00:00+00') AS b, measured_at,

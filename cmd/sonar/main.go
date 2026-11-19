@@ -1,5 +1,4 @@
-// Command sonar is Spark's read-only monitoring service. One binary runs as
-// each part of Sonar or as its CLI, picked by the first argument.
+// Command sonar is Spark's monitoring service; the first argument picks the part to run, or a CLI command.
 package main
 
 import (
@@ -240,16 +239,14 @@ func runHealth(args []string) int {
 	return 0
 }
 
-// newLogger is the logger every part of Sonar uses: Spark's standard, so
-// Blackbox reads it, and the default for libraries too.
+// newLogger is Spark's standard logger, which Blackbox reads, set as the default too.
 func newLogger() *slog.Logger {
 	log := blackboxlog.New(blackboxlog.Options{})
 	slog.SetDefault(log)
 	return log
 }
 
-// serviceConfig is the configuration for a part of Sonar; without one, it
-// logs why and exits.
+// serviceConfig loads the configuration, or logs why it can't and exits.
 func serviceConfig(log *slog.Logger) config.Config {
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
@@ -282,9 +279,7 @@ func runCommand(args []string) int {
 	return 0
 }
 
-// cliOptions points the CLI at the snapshot, the database as the reader, and
-// the API's consumers: what sonar-api has. Elsewhere the commands that need
-// them say where to run instead.
+// cliOptions gives the CLI what sonar-api has: the snapshot, the database as reader, the consumers.
 func cliOptions(cfg config.Config) cli.Options {
 	snaps := snapshot.NewCache(snapshot.Dir)
 	return cli.Options{

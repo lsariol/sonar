@@ -11,10 +11,7 @@ import (
 	"strings"
 )
 
-// NetDevPath is where the agent reads the host's network counters: the
-// host's /proc/1/net/dev, mounted read-only on its own (the rest of
-// /proc/1/net lists the host's connections, routes and neighbours). A container's own /proc/net/dev
-// shows only the container's network.
+// NetDevPath is the host's /proc/1/net/dev, mounted alone: the rest of /proc/1/net shows its connections.
 const NetDevPath = "/host/net/dev"
 
 // Interface is one network interface's byte counters since boot.
@@ -23,9 +20,7 @@ type Interface struct {
 	RxBytes, TxBytes uint64
 }
 
-// ReadNetwork reads a /proc/net/dev file: every interface but the loopback
-// and the veth ends of containers (their traffic also crosses a bridge).
-// Without the file, the error wraps errors.ErrUnsupported.
+// ReadNetwork reads /proc/net/dev but the loopback and veth ends; without it, errors.ErrUnsupported.
 func ReadNetwork(path string) ([]Interface, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {

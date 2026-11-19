@@ -1,21 +1,4 @@
--- Sonar database: the one-time Admin setup on sparkdb.
---
--- Creates what's missing and fixes ownership and access:
---   roles     sonar_owner (NOLOGIN), sonar_migrator (member of the owner,
---             acting as it), sonar_app, sonar_reader, and sonar_monitor
---             (pg_read_all_stats: every database's size and connections)
---   database  sonar_db, owned by sonar_owner; only the four login roles may
---             connect
---   schema    sonar, if it exists already: owned by sonar_owner
--- Everything inside the schema (tables, grants) comes from Sonar's goose
--- migrations, never from here.
---
--- Safe to run again. It never changes the password of a role that exists; a
--- password is only needed for a role that doesn't exist yet, and every missing
--- one is checked before anything changes.
---
--- Run it as a superuser with psql, giving a password for each role that
--- doesn't exist yet (README, "Getting started").
+-- Sonar's roles, database and access, run by a superuser; safe to run again (see the README).
 
 \set ON_ERROR_STOP on
 SET client_min_messages = warning;
@@ -101,12 +84,10 @@ CREATE ROLE sonar_monitor LOGIN PASSWORD :'monitor_password';
 \else
 ALTER ROLE sonar_monitor LOGIN;
 \endif
--- Reads every database's size and every session's state, nothing else:
--- pg_read_all_stats, not the wider pg_monitor.
+-- pg_read_all_stats, not the wider pg_monitor: sizes and sessions' states, nothing else.
 GRANT pg_read_all_stats TO sonar_monitor;
 
--- The migrator acts as the owner, so everything the migrations create is
--- owned by sonar_owner, not by whoever ran them.
+-- The migrator acts as the owner, so sonar_owner owns everything the migrations create.
 GRANT sonar_owner TO sonar_migrator;
 ALTER ROLE sonar_migrator SET role = 'sonar_owner';
 
@@ -122,8 +103,7 @@ ALTER DATABASE sonar_db OWNER TO sonar_owner;
 REVOKE ALL ON DATABASE sonar_db FROM PUBLIC;
 GRANT CONNECT ON DATABASE sonar_db TO sonar_migrator, sonar_app, sonar_reader, sonar_monitor;
 
--- 4. Inside the database: the sonar schema (if an earlier setup made it)
--- belongs to the owner, and nobody else may create objects in public.
+-- 4. The sonar schema, if an earlier setup made it, belongs to the owner; nobody creates in public.
 
 \connect sonar_db
 DO $$

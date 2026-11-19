@@ -17,8 +17,7 @@ type fakeDisk struct {
 
 func (f *fakeDisk) Disk(context.Context) (containers.DiskAnswer, error) { return f.answer, f.err }
 
-// TestStorage: data folders and Docker's figures join per project, a new
-// measurement is filed once, and an unreadable folder is reported.
+// TestStorage: folders and Docker's figures join per project, a measurement is filed once, unreadable ones reported.
 func TestStorage(t *testing.T) {
 	d := &fakeDisk{}
 	a, clk := newTestAgent(t, &fakeDocker{}, &fakeChecker{})

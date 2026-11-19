@@ -1,6 +1,4 @@
-// Package agent is sonar-agent: it samples the host and every container,
-// checks public addresses, and writes the snapshot the API reads. Each
-// collector fails on its own, and a failure never becomes a zero.
+// Package agent is sonar-agent: it samples the host, containers and checks, and writes the snapshot and history.
 package agent
 
 import (
@@ -29,13 +27,10 @@ const (
 	checksEvery  = 30 * time.Second
 	networkEvery = 10 * time.Second
 
-	// dockerFreshFor is how long the last container list stands in for
-	// failed ones before projects count as unknown.
+	// dockerFreshFor is how long the last container list stands in before projects count as unknown.
 	dockerFreshFor = 60 * time.Second
 
-	// dockerRecordFor is how old the container list may be for project states
-	// to go into the history: two missed readings. Past that, the page keeps
-	// showing the last state (dockerFreshFor), but the history has a gap.
+	// dockerRecordFor is how old the container list may be for states to go into the history: two missed readings.
 	dockerRecordFor = 2*dockerEvery + 5*time.Second
 
 	dockerTimeout = 20 * time.Second
@@ -86,8 +81,7 @@ type Options struct {
 	// OpenStore migrates and connects to the database; nil runs without one.
 	OpenStore func(ctx context.Context) (Store, error)
 
-	// OpenMonitor connects to sparkdb as sonar_monitor; nil leaves the
-	// databases out.
+	// OpenMonitor connects to sparkdb as sonar_monitor; nil leaves the databases out.
 	OpenMonitor func(ctx context.Context) (DatabaseMonitor, error)
 }
 
@@ -276,8 +270,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	return nil
 }
 
-// tick is the 5-second beat: read the host, write the snapshot, and close
-// finished minutes, whether or not the database is there to take them.
+// tick is the 5-second beat: read the host, write the snapshot, close finished minutes.
 func (a *Agent) tick() {
 	a.sampleHost()
 	a.writeSnapshot()
@@ -333,8 +326,7 @@ func (a *Agent) sampleDisk(context.Context) {
 	a.record(diskCollector, err)
 }
 
-// sampleNetwork reads the host's network counters: rates for the snapshot,
-// bytes moved for the minute.
+// sampleNetwork reads the host's network counters: rates for the snapshot, bytes for the minute.
 func (a *Agent) sampleNetwork(context.Context) {
 	ifs, err := a.opts.ReadNetwork(a.opts.NetDevPath)
 
@@ -393,9 +385,7 @@ func (a *Agent) sampleDocker(ctx context.Context) {
 	a.addDockerMinute(now, grown)
 }
 
-// keepUninspected is the new list, plus the last known details of containers
-// Docker couldn't inspect this time, so their services don't vanish.
-// Callers hold a.mu.
+// keepUninspected adds back the last details of containers Docker couldn't inspect; callers hold a.mu.
 func (a *Agent) keepUninspected(answer containers.ContainersAnswer) []containers.Container {
 	list := answer.Containers
 	a.uninspected = nil
@@ -408,9 +398,7 @@ func (a *Agent) keepUninspected(answer containers.ContainersAnswer) []containers
 	return list
 }
 
-// updateUsage turns two readings of each container's counters into rates,
-// and returns how much each counter grew. A container whose stats failed
-// keeps its last reading for next time.
+// updateUsage turns two readings into rates and returns each counter's growth; failed stats keep their last reading.
 func (a *Agent) updateUsage(answer containers.StatsAnswer) map[string]counters {
 	readings := make(map[string]containers.Stats, len(answer.Stats))
 	usage := make(map[string]snapshot.Usage, len(answer.Stats))
@@ -449,8 +437,7 @@ func (a *Agent) updateUsage(answer containers.StatsAnswer) map[string]counters {
 	return grown
 }
 
-// growth is how much a counter grew; after a reset (a restart) it counted
-// up from zero, so all of it is new.
+// growth is how much a counter grew; after a reset (a restart) all of it is new.
 func growth(prev, cur uint64) uint64 {
 	if cur < prev {
 		return cur
@@ -458,8 +445,7 @@ func growth(prev, cur uint64) uint64 {
 	return cur - prev
 }
 
-// rate is how fast a counter grew, per unit; nil when it went backwards (the
-// container restarted).
+// rate is how fast a counter grew per unit; nil when it went backwards (a restart).
 func rate(prev, cur uint64, per float64) *float64 {
 	if cur < prev || per <= 0 {
 		return nil
@@ -468,9 +454,7 @@ func rate(prev, cur uint64, per float64) *float64 {
 	return &v
 }
 
-// updateTargets reads the public-url and check-path labels: valid ones
-// become targets, the rest are reported. Checks of labels that went away are
-// forgotten.
+// updateTargets turns the public-url and check-path labels into checks, reporting the ones it refuses.
 func (a *Agent) updateTargets() {
 	var targets []target
 	var refused []string
@@ -543,8 +527,7 @@ func (a *Agent) runChecks(ctx context.Context) {
 		r := results[i]
 		st.last = r
 		if r.Refused {
-			// A label pointing somewhere Sonar won't go says nothing about
-			// the service; attention reports it.
+			// A label pointing somewhere Sonar won't go says nothing about the service; attention reports it.
 			st.state, st.failures = state.Unknown, 0
 			continue
 		}
@@ -559,8 +542,7 @@ func (a *Agent) runChecks(ctx context.Context) {
 	a.record(checksCollector, nil)
 }
 
-// record notes a collector's result, and logs when its error changes.
-// Callers hold a.mu.
+// record notes a collector's result and logs when its error changes; callers hold a.mu.
 func (a *Agent) record(name string, err error) {
 	c := a.collectors[name]
 	switch {

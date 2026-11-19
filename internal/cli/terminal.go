@@ -10,9 +10,7 @@ import (
 	"golang.org/x/term"
 )
 
-// runTerminal runs the prompt with line editing: arrow keys, history
-// (up/down) and Tab completion. It returns false if the terminal can't be
-// put in raw mode, so Run falls back to plain lines.
+// runTerminal runs the prompt with line editing, history and Tab; false when raw mode isn't available.
 func (c *CLI) runTerminal(ctx context.Context) bool {
 	fd := int(os.Stdin.Fd())
 
@@ -46,8 +44,7 @@ func (c *CLI) runTerminal(ctx context.Context) bool {
 	return true
 }
 
-// complete handles Tab: command names first, then the command's own
-// completions.
+// complete handles Tab: command names first, then the command's own completions.
 func (c *CLI) complete(line string, pos int, key rune) (string, int, bool) {
 	if key != '\t' {
 		return "", 0, false

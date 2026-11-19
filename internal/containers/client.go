@@ -39,8 +39,7 @@ func NewClient(socket string) *Client {
 	}
 }
 
-// Containers returns every container, stopped ones included, and the ones
-// Docker couldn't inspect.
+// Containers returns every container, stopped ones too, and the ones Docker couldn't inspect.
 func (c *Client) Containers(ctx context.Context) (ContainersAnswer, error) {
 	var answer ContainersAnswer
 	err := c.get(ctx, "/v1/containers", &answer)

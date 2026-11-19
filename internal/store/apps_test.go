@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-// TestApps writes counters and check changes, rolls the day up, and reads
-// both back as the API does.
+// TestApps writes counters and check changes, rolls the day up, and reads both back as the API does.
 func TestApps(t *testing.T) {
 	app := open(t)
 	ctx := context.Background()

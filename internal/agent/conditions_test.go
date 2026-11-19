@@ -64,9 +64,7 @@ func TestConditions(t *testing.T) {
 	}
 }
 
-// TestConditionSince: a condition keeps the time it began while it lasts,
-// across a change of level and a restart of the agent; once gone, it starts
-// over.
+// TestConditionSince: a condition keeps its start across a change of level and an agent restart.
 func TestConditionSince(t *testing.T) {
 	cove := running('a', "cove", "cove", "")
 	cove.Group = "infrastructure"

@@ -24,15 +24,13 @@ import (
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
 
-// migrationsTable is where goose records applied migrations, in the sonar
-// schema with everything else Sonar owns.
+// migrationsTable is where goose records migrations, in Sonar's own schema.
 const migrationsTable = "sonar.goose_db_version"
 
 // undefinedTable is Postgres's error code for a missing table.
 const undefinedTable = "42P01"
 
-// Migrate applies every pending migration, as sonar_migrator. A Postgres
-// advisory lock keeps two starts from migrating at once.
+// Migrate applies pending migrations as sonar_migrator, under an advisory lock.
 func Migrate(ctx context.Context, connString string, log *slog.Logger) error {
 	db, err := sql.Open("pgx", connString)
 	if err != nil {
@@ -70,8 +68,7 @@ func Migrate(ctx context.Context, connString string, log *slog.Logger) error {
 	return nil
 }
 
-// SchemaVersion returns the database's migration version and the version this
-// build needs.
+// SchemaVersion returns the database's migration version and the one this build needs.
 func (s *Store) SchemaVersion(ctx context.Context) (have, want int64, err error) {
 	want, err = latestMigration()
 	if err != nil {
@@ -88,8 +85,7 @@ func (s *Store) SchemaVersion(ctx context.Context) (have, want int64, err error)
 	return have, want, nil
 }
 
-// CheckSchemaVersion refuses a database missing a migration this build needs.
-// A newer database is fine: migrations only ever add.
+// CheckSchemaVersion refuses a database missing a migration; a newer one is fine.
 func (s *Store) CheckSchemaVersion(ctx context.Context) error {
 	have, want, err := s.SchemaVersion(ctx)
 	if err != nil {
@@ -124,8 +120,7 @@ type Migration struct {
 	AppliedAt *time.Time // nil while pending
 }
 
-// Migrations lists this build's migrations, oldest first, with the time each
-// was applied. The reader may read the version table.
+// Migrations lists this build's migrations, oldest first, with when each was applied.
 func (s *Store) Migrations(ctx context.Context) ([]Migration, error) {
 	names, err := fs.Glob(embeddedMigrations, "migrations/*.sql")
 	if err != nil {

@@ -40,9 +40,7 @@ func colorize(color string, s string) string {
 	return color + s + reset
 }
 
-// clean replaces control characters, except line breaks, with "?". Much of
-// what the CLI prints comes from outside (container names, labels, websites'
-// errors), and a control character could take over the terminal.
+// clean replaces control characters but line breaks with "?", since much of what's printed comes from outside.
 func clean(s string) string {
 	return strings.Map(func(r rune) rune {
 		if r != '\n' && unicode.IsControl(r) {
@@ -77,8 +75,7 @@ func info(msg string) {
 	fmt.Fprintln(stderr, clean(msg))
 }
 
-// promptFor returns the prompt for an environment: "sonar (dev)> ", or
-// "sonar (prod)> " with the label in red.
+// promptFor is the prompt for an environment, prod in red.
 func promptFor(env string) string {
 	env = strings.ToLower(strings.TrimSpace(env))
 	if env == "" {

@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// FuzzValidate: no label crashes Validate, and whatever it accepts is https
-// on port 443 to a public-looking hostname.
+// FuzzValidate: no label crashes Validate, and what it accepts is https on 443 to a public-looking host.
 func FuzzValidate(f *testing.F) {
 	for _, s := range []string{"https://plop.mobasity.com", "https://10.0.0.1", "https://cove", "http://x.y",
 		"https://u:p@x.y", "https://[::1]:443/", "https://x.y:8443", "https://plop.mobasity.com./a?b#c", "https://%zz"} {

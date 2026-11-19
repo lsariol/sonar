@@ -12,8 +12,7 @@ import (
 const (
 	databaseCollector = "database"
 
-	// flushDelay is how long after a minute ends it's written, so the last
-	// readings of the minute are in.
+	// flushDelay is how long after a minute ends it's written, so its last readings are in.
 	flushDelay   = 5 * time.Second
 	flushEvery   = 5 * time.Second
 	maxPending   = 60 // finished minutes kept while the database is unreachable
@@ -31,9 +30,7 @@ type Store interface {
 	Prune(ctx context.Context, now time.Time) (int64, error)
 }
 
-// runDatabase connects (retrying while sparkdb is away), then writes finished
-// minutes, refreshes the daily rows and deletes old rows until ctx ends.
-// Collecting goes on meanwhile; minutes wait in the queue.
+// runDatabase connects, retrying, then writes minutes, refreshes days and prunes until ctx ends.
 func (a *Agent) runDatabase(ctx context.Context) {
 	var db Store
 	for db == nil {
@@ -90,9 +87,7 @@ func (a *Agent) runDatabase(ctx context.Context) {
 	}
 }
 
-// flushOnStop closes every open minute, the current one too (as a partial
-// minute), and writes the queue before the agent exits, within docker stop's
-// grace period.
+// flushOnStop writes every open minute, the current one too, within docker stop's grace period.
 func (a *Agent) flushOnStop(db Store) {
 	a.mu.Lock()
 	a.closeMinutes(a.opts.Now().Add(time.Minute + flushDelay))
@@ -102,8 +97,7 @@ func (a *Agent) flushOnStop(db Store) {
 	a.flush(ctx, db)
 }
 
-// flush closes finished minutes and writes the queue in order, stopping at
-// the first failure so nothing is written out of order.
+// flush writes the queue in order, stopping at the first failure so nothing is written out of order.
 func (a *Agent) flush(ctx context.Context, db Store) {
 	a.mu.Lock()
 	a.closeMinutes(a.opts.Now())

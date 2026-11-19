@@ -79,8 +79,7 @@ func (f fakeDNS) LookupNetIP(ctx context.Context, network, host string) ([]netip
 	return f.addrs, nil
 }
 
-// testChecker checks srv as if it were https://plop.mobasity.com. allowLocal
-// lets it reach the test server on 127.0.0.1; without it the real rule holds.
+// testChecker checks srv as https://plop.mobasity.com; allowLocal lets it reach 127.0.0.1.
 func testChecker(t *testing.T, srv *httptest.Server, dns fakeDNS, allowLocal bool) *Checker {
 	t.Helper()
 	allowed := Public
@@ -148,8 +147,7 @@ func TestCheckOutcomes(t *testing.T) {
 	}
 }
 
-// TestHostileStatusLine: a site's status line can carry terminal control
-// codes; the check's error uses Go's wording instead.
+// TestHostileStatusLine: a status line with control codes; the error uses Go's wording instead.
 func TestHostileStatusLine(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, buf, err := w.(http.Hijacker).Hijack()

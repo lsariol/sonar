@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// TestConcurrentRequests sends many requests at once, across endpoints and
-// while the cache expires, for the race detector to look at.
+// TestConcurrentRequests sends many requests at once, while the cache expires, for the race detector.
 func TestConcurrentRequests(t *testing.T) {
 	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51}, buckets: testBuckets()}
 	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now)})

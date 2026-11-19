@@ -1,6 +1,4 @@
--- What each project keeps on disk, measured by sonar-proxy every 30 minutes:
--- its data folder in /srv/server/storage, the image layers only it uses, its
--- containers' writable layers and its volumes. Kept 380 days, to show growth.
+-- What each project keeps on disk, measured every 30 minutes and kept 380 days.
 
 -- +goose Up
 CREATE TABLE sonar.project_disk (

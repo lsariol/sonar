@@ -16,8 +16,7 @@ import (
 const (
 	storageCollector = "storage"
 
-	// storageEvery is how often the agent asks the proxy; the proxy measures
-	// every 30 minutes, so most answers are the one already seen.
+	// storageEvery is how often the agent asks the proxy, which measures every 30 minutes.
 	storageEvery = 5 * time.Minute
 )
 
@@ -67,8 +66,7 @@ func storageProblem(d containers.DiskAnswer) error {
 	return errors.Join(errs...)
 }
 
-// diskUse joins the data folders (named after their compose project) and
-// Docker's figures into one row per project.
+// diskUse joins the data folders and Docker's figures into one row per project.
 func diskUse(d containers.DiskAnswer) snapshot.DiskUse {
 	use := snapshot.DiskUse{MeasuredAt: d.MeasuredAt.UTC(), Seconds: d.Seconds, Projects: []snapshot.ProjectDisk{},
 		Totals: snapshot.DiskTotals{Images: d.Totals.Images, Containers: d.Totals.Containers, Volumes: d.Totals.Volumes,

@@ -1,6 +1,4 @@
--- Traffic per site, as Cloudflare counts it (requests from visitors only):
--- each hostname's requests, 5xx answers and bytes sent, by hour. Read again
--- for a few hours, so each row ends up with Cloudflare's final count.
+-- Each hostname's requests, 5xx answers and bytes by hour, as Cloudflare counts them.
 
 -- +goose Up
 CREATE TABLE sonar.traffic_hours (

@@ -17,9 +17,7 @@ import (
 	"github.com/lsariol/sonar/internal/state"
 )
 
-// The integration tests run against a real, disposable Postgres set up with
-// scripts/db/setup.sql (scripts/test-db.sh does it). Without these
-// variables they're skipped.
+// The integration tests use a throwaway Postgres from scripts/test-db.sh, and skip without it.
 var (
 	migratorURL = os.Getenv("SONAR_TEST_DATABASE_MIGRATOR_URL")
 	appURL      = os.Getenv("SONAR_TEST_DATABASE_URL")
@@ -49,8 +47,7 @@ func open(t *testing.T) *Store {
 	}
 	t.Cleanup(s.Close)
 
-	// go test runs packages at once; this lock makes their database tests
-	// take turns (internal/agent takes it too).
+	// Packages' database tests take turns under this lock (internal/agent takes it too).
 	lock, err := s.pool.Acquire(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -152,8 +149,7 @@ func TestWriteMinute(t *testing.T) {
 		t.Errorf("container row: %s %v %v", version, firstSeen, lastSeen)
 	}
 
-	// The same minute again (a retry) replaces it; the next minute extends the
-	// container's last_seen.
+	// A retried minute replaces itself; the next one extends the container's last_seen.
 	m := sampleMinute(minute)
 	m.Host.Samples = 7
 	if err := s.WriteMinute(ctx, m); err != nil {
@@ -344,9 +340,7 @@ func midnightUTC(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
-// TestUpdates: update records are written with their minute, read back for a
-// window, counted in the daily rows as updating minutes, readable by the
-// reader, and deleted after the retention.
+// TestUpdates: updates are written, read back, counted in the days, readable and pruned.
 func TestUpdates(t *testing.T) {
 	app := open(t)
 	ctx := context.Background()

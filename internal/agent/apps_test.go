@@ -36,8 +36,7 @@ func reporting(idc byte, project, port string) containers.Container {
 	return c
 }
 
-// TestApps: counters grow by what changed, a restart starts them over, a
-// failed reading counts nothing twice, and checks keep when they changed.
+// TestApps: counters grow by what changed, restarts start them over, nothing counts twice, checks keep their since.
 func TestApps(t *testing.T) {
 	dibs := reporting('a', "dibs", "8080")
 	d := &fakeDocker{list: []containers.Container{dibs, reporting('b', "plop", "http"), running('c', "lys", "lys", "")}}
@@ -113,8 +112,7 @@ func TestApps(t *testing.T) {
 	}
 }
 
-// TestAppsFreshDeploy: a container that started moments ago counts its
-// first reading.
+// TestAppsFreshDeploy: a container that started moments ago counts its first reading.
 func TestAppsFreshDeploy(t *testing.T) {
 	d := &fakeDocker{list: []containers.Container{reporting('a', "dibs", "8080")}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})

@@ -18,8 +18,7 @@ const (
 	// StorageDir is where the compose file mounts /srv/server/storage, read-only.
 	StorageDir = "/host/storage"
 
-	// diskEvery is how often the proxy measures; walking every data folder
-	// and asking Docker for its sizes both take a while.
+	// diskEvery is how often the proxy measures; walking folders and asking Docker take a while.
 	diskEvery = 30 * time.Minute
 
 	// diskFirstAfter lets the containers settle before the first measurement.
@@ -68,8 +67,7 @@ func (m *diskMeter) run(ctx context.Context, first time.Duration) {
 	}
 }
 
-// measure walks every data folder and asks Docker for its sizes. Either can
-// fail without the other.
+// measure walks every data folder and asks Docker for its sizes, either failing on its own.
 func (m *diskMeter) measure(ctx context.Context) containers.DiskAnswer {
 	start := time.Now()
 	answer := containers.DiskAnswer{Folders: []containers.FolderSize{}, Projects: []containers.ProjectDocker{}}
@@ -114,9 +112,7 @@ func measureFolders(ctx context.Context, root string) ([]containers.FolderSize, 
 	return out, nil
 }
 
-// folderSize adds up the space every file under dir takes on disk, without
-// following links; a hard-linked file counts once. Entries it can't read are
-// counted as unreadable, not given up on.
+// folderSize adds up the space under dir, links not followed, hard links once, unreadable entries counted.
 func folderSize(ctx context.Context, dir string) (containers.FolderSize, error) {
 	var size containers.FolderSize
 	seen := make(map[fileID]bool)
@@ -180,9 +176,7 @@ type systemDF struct {
 	} `json:"BuildCache"`
 }
 
-// dockerUse adds Docker's sizes up per compose project: the layers only an
-// image has go to each project running it, writable layers and volumes to
-// the project they belong to.
+// dockerUse adds Docker's sizes up per project: unshared image layers, writable layers, volumes.
 func dockerUse(df systemDF) ([]containers.ProjectDocker, containers.DockerTotals) {
 	unique := make(map[string]int64, len(df.Images))
 	for _, img := range df.Images {

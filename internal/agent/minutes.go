@@ -16,8 +16,7 @@ import (
 // hostSamplesPerMinute is how many host readings a full minute has.
 const hostSamplesPerMinute = int(time.Minute / hostEvery)
 
-// bucket adds up one minute of readings. Everything is filed under the minute
-// it was recorded in, so nothing arrives for a minute already written.
+// bucket adds up one minute of readings, filed under the minute they were recorded in.
 type bucket struct {
 	start      time.Time
 	host       hostSum
@@ -125,8 +124,7 @@ func (a *Agent) addHostMinute(now time.Time) {
 	}
 }
 
-// addDockerMinute files one container reading: each service's state and
-// usage, the growth of its counters, and the containers seen.
+// addDockerMinute files one container reading: states, usage, counter growth and the containers seen.
 func (a *Agent) addDockerMinute(now time.Time, grown map[string]counters) {
 	b := a.bucketAt(now)
 	byService := make(map[serviceKey][]containers.Container)
@@ -173,8 +171,7 @@ func (a *Agent) addDockerMinute(now time.Time, grown map[string]counters) {
 	}
 }
 
-// addNetworkMinute files how much each host interface moved since the last
-// reading. Callers hold a.mu.
+// addNetworkMinute files the bytes each host interface moved; callers hold a.mu.
 func (a *Agent) addNetworkMinute(now time.Time, grown map[string]counters) {
 	b := a.bucketAt(now)
 	for name, g := range grown {
@@ -213,8 +210,7 @@ func (a *Agent) addCheckMinute(now time.Time, t target, r checks.Result, st stat
 	}
 }
 
-// addProjectMinute files the projects' states from one snapshot; unknown
-// states are gaps, not data.
+// addProjectMinute files the projects' states from one snapshot; unknown states are gaps.
 func (a *Agent) addProjectMinute(now time.Time, projects []snapshot.Project) {
 	b := a.bucketAt(now)
 	for _, p := range projects {
@@ -233,8 +229,7 @@ func (a *Agent) addProjectMinute(now time.Time, projects []snapshot.Project) {
 	}
 }
 
-// closeMinutes moves every bucket that ended more than flushDelay ago to the
-// queue for the database, oldest first. Callers hold a.mu.
+// closeMinutes queues every bucket that ended more than flushDelay ago, oldest first; callers hold a.mu.
 func (a *Agent) closeMinutes(now time.Time) {
 	var done []time.Time
 	for start := range a.buckets {

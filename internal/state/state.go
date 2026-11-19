@@ -1,6 +1,4 @@
-// Package state decides what's working: a container and a service from
-// Docker's view, an outside check from its recent results, and a project from
-// both. Pure functions, no I/O.
+// Package state decides what's working, from Docker's view and the outside checks: pure functions.
 package state
 
 import (
@@ -10,9 +8,7 @@ import (
 	"github.com/lsariol/sonar/internal/containers"
 )
 
-// State is how well something works. The values are what the database
-// stores; how bad each is goes by rank, so Updating could be added without
-// renumbering.
+// State is how well something works; stored as a number, ranked separately so values can be added.
 type State int
 
 const (
@@ -25,8 +21,7 @@ const (
 
 var names = [...]string{"unknown", "up", "degraded", "down", "updating"}
 
-// rank orders states from best to worst; Unknown is lowest, so Worst ignores
-// it while there's anything else.
+// rank orders states from best to worst; Unknown is lowest, so Worst ignores it while there's anything else.
 var rank = [...]int{Unknown: 0, Up: 1, Updating: 2, Degraded: 3, Down: 4}
 
 func (s State) String() string {
@@ -74,15 +69,10 @@ const (
 	ContainerOnly Evidence = "container" // Docker's view only
 )
 
-// StopGrace is how long a container that just stopped, or was just created
-// and not started yet, counts as unknown rather than down: a deploy creates
-// the new container and stops the old one a moment before starting the new
-// one, and a reading can land in between.
+// StopGrace is how long a just-stopped or just-created container is unknown, since a deploy swaps them.
 const StopGrace = 20 * time.Second
 
-// Container is one container's state as Docker sees it at now. counted is
-// false for one-off jobs (restart policy "no"), which don't count toward
-// availability.
+// Container is one container's state at now; counted is false for one-off jobs.
 func Container(c containers.Container, now time.Time) (s State, counted bool) {
 	if c.RestartPolicy == "no" || c.RestartPolicy == "" {
 		return Unknown, false
@@ -111,8 +101,7 @@ func Container(c containers.Container, now time.Time) (s State, counted bool) {
 	return Up, true
 }
 
-// Service is a compose service's state at now: the worst of its counted
-// containers. counted is false when every container is a one-off job.
+// Service is the worst of a service's counted containers; counted is false when all are one-off jobs.
 func Service(cs []containers.Container, now time.Time) (s State, counted bool) {
 	for _, c := range cs {
 		if cState, ok := Container(c, now); ok {
@@ -122,9 +111,7 @@ func Service(cs []containers.Container, now time.Time) (s State, counted bool) {
 	return s, counted
 }
 
-// Check is an outside check's state after its latest result: down only after
-// 2 failures in a row, so one blip changes nothing; up again on the first
-// success.
+// Check is a check's state: down after 2 failures in a row, up again on the first success.
 func Check(prev State, failuresInARow int, slow bool) State {
 	switch {
 	case failuresInARow >= 2:
@@ -137,11 +124,7 @@ func Check(prev State, failuresInARow int, slow bool) State {
 	return Up
 }
 
-// Project is a project's state from its counted services and its outside
-// checks. Unknown entries (no result yet) are left out. While a service is
-// updating and nothing else is wrong, the project is updating, even if its
-// outside check fails meanwhile: visitors may see the swap, but it's a
-// deploy, not an outage.
+// Project is a project's state from its services and checks; a deploy is updating, not an outage.
 func Project(services, checks []State) (State, Evidence) {
 	services, checks = known(services), known(checks)
 	evidence := ContainerOnly
@@ -190,10 +173,7 @@ func Project(services, checks []State) (State, Evidence) {
 	return Up, ContainerOnly
 }
 
-// Day is a day's state from its minute counts: the worst state that lasted at
-// least 5 minutes in total. Updating minutes count as up. ok is false (no
-// data) when fewer than half of the window's minutes were observed; window is
-// 1440, or the minutes so far today.
+// Day is the worst state that lasted 5 minutes; no data when under half of window was observed.
 func Day(up, updating, degraded, down, window int) (s State, ok bool) {
 	if window <= 0 || (up+updating+degraded+down)*2 < window {
 		return Unknown, false
@@ -207,8 +187,7 @@ func Day(up, updating, degraded, down, window int) (s State, ok bool) {
 	return Up, true
 }
 
-// Uptime is the percentage of observed minutes that were up, updating or
-// degraded (they all answered). ok is false when nothing was observed.
+// Uptime is the share of observed minutes that answered (up, updating or degraded).
 func Uptime(up, updating, degraded, down int) (pct float64, ok bool) {
 	observed := up + updating + degraded + down
 	if observed == 0 {

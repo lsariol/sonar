@@ -1,6 +1,4 @@
-// Package api is sonar-api: it serves Sonar's data to authenticated
-// consumers on the spark network. Every answer is built from a
-// strict projection; nothing internal is served as is.
+// Package api is sonar-api: it serves Sonar's data to consumers on spark, each answer a strict projection.
 package api
 
 import (
@@ -146,8 +144,7 @@ func (s *Server) Handler() http.Handler {
 	return http.TimeoutHandler(securityHeaders(mux), requestTimeout, `{"error":"the request took too long"}`)
 }
 
-// Serve listens on addr until ctx is cancelled, connecting to the database
-// in the background.
+// Serve listens on addr until ctx ends, connecting to the database in the background.
 func (s *Server) Serve(ctx context.Context, addr string) error {
 	go s.connect(ctx)
 
@@ -178,8 +175,7 @@ func (s *Server) Serve(ctx context.Context, addr string) error {
 	return nil
 }
 
-// connect opens the database, retrying until it answers with the schema this
-// build needs (the agent applies migrations).
+// connect opens the database, retrying until it has the schema this build needs.
 func (s *Server) connect(ctx context.Context) {
 	for {
 		db, err := s.opts.OpenReader(ctx)
@@ -257,8 +253,7 @@ func (s *Server) require(sc scope, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// refusals logs refused requests: the first at once, then at most one summary
-// a minute, so a flood of bad requests can't flood the log (and the disk).
+// refusals logs refused requests at most once a minute, so a flood can't flood the log.
 type refusals struct {
 	mu      sync.Mutex
 	logged  time.Time
@@ -290,8 +285,7 @@ func (s *Server) statusHandler(w http.ResponseWriter, r *http.Request) {
 	s.serveStatus(w, r, s.status, IsPublic)
 }
 
-// monitorStatusHandler is /v1/status for the owner: every project, the
-// excluded ones too.
+// monitorStatusHandler is /v1/status for the owner: every project, the excluded ones too.
 func (s *Server) monitorStatusHandler(w http.ResponseWriter, r *http.Request) {
 	s.serveStatus(w, r, s.monitorStatus, anyProject)
 }
@@ -308,8 +302,7 @@ func (s *Server) serveStatus(w http.ResponseWriter, r *http.Request, c *cache[in
 	})
 }
 
-// daysParam is the days query parameter, 90 when it's missing; on a bad value
-// it answers 400 and reports false.
+// daysParam is the days parameter, 90 when missing; a bad value answers 400 and reports false.
 func daysParam(w http.ResponseWriter, r *http.Request) (int, bool) {
 	v := r.URL.Query().Get("days")
 	if v == "" {
@@ -372,8 +365,7 @@ func (s *Server) snapshot() *snapshot.Snapshot {
 	return &snap
 }
 
-// rangeParam is the range query parameter, def when it's missing; on a value
-// not in ranges it answers 400 and reports false.
+// rangeParam is the range parameter, def when missing; a value not in ranges answers 400 and reports false.
 func rangeParam[V any](w http.ResponseWriter, r *http.Request, def string, ranges map[string]V) (string, V, bool) {
 	name := r.URL.Query().Get("range")
 	if name == "" {
@@ -399,8 +391,7 @@ func (s *Server) projectsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// conditionsHandler needs no database: it's the snapshot alone, so it still
-// answers while sparkdb is down.
+// conditionsHandler reads only the snapshot, so it answers while sparkdb is down.
 func (s *Server) conditionsHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, buildConditions(s.opts.Now(), s.snapshot()))
 }
@@ -595,9 +586,7 @@ func newCache[K comparable](ttl time.Duration) *cache[K] {
 	return &cache[K]{ttl: ttl, entries: make(map[K]cached)}
 }
 
-// get returns key's answer while it's fresh, otherwise builds it. The lock is
-// held while building, so a burst of requests costs one query; the build
-// isn't tied to one request, so a caller hanging up doesn't fail the others.
+// get returns key's fresh answer or builds it once under the lock, detached from any one request.
 func (c *cache[K]) get(key K, now time.Time, build func(ctx context.Context) (any, error)) ([]byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

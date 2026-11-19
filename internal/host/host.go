@@ -1,6 +1,4 @@
-// Package host reads the host's CPU, memory, load, uptime and disk. Inside a
-// container, /proc/stat, /proc/meminfo, /proc/loadavg and /proc/uptime show
-// the whole host (confirmed on Spark), so no host mounts are needed.
+// Package host reads the host's CPU, memory, load, uptime and disk, which /proc shows in a container too.
 package host
 
 import (
@@ -14,14 +12,12 @@ import (
 	"time"
 )
 
-// Reader reads the /proc under Root: "/" in a container, a testdata folder in
-// tests.
+// Reader reads the /proc under Root: "/" in a container, testdata in tests.
 type Reader struct {
 	Root string
 }
 
-// CPUTimes are cumulative CPU time counters from /proc/stat, in clock ticks.
-// Guest time is already counted in User and Nice, so it's left out.
+// CPUTimes are /proc/stat's cumulative counters in clock ticks; guest time is already in User and Nice.
 type CPUTimes struct {
 	User, Nice, System, Idle, IOWait, IRQ, SoftIRQ, Steal uint64
 }
@@ -40,8 +36,7 @@ type CPU struct {
 	Cores []CPUTimes
 }
 
-// Busy is the percentage of CPU time spent working between two readings. It
-// reports false when no time passed or a counter went backwards (a reboot).
+// Busy is the share of CPU time spent working between two readings; false after a reset.
 func Busy(prev, cur CPUTimes) (float64, bool) {
 	total, idle := cur.total(), cur.idle()
 	if total <= prev.total() || idle < prev.idle() || total-prev.total() < idle-prev.idle() {
@@ -56,8 +51,7 @@ type Memory struct {
 	Total, Available, Free, Buffers, Cached, SwapTotal, SwapFree uint64
 }
 
-// Used is memory in use: everything that isn't available. Available counts
-// page cache the kernel can reclaim, so it's the honest headline figure.
+// Used is memory that isn't available; Available counts reclaimable cache, so this is the honest figure.
 func (m Memory) Used() uint64 {
 	if m.Available > m.Total {
 		return 0
@@ -81,8 +75,7 @@ func (m Memory) SwapUsed() uint64 {
 	return m.SwapTotal - m.SwapFree
 }
 
-// Load is /proc/loadavg: runnable processes averaged over 1, 5 and 15
-// minutes. It isn't a percentage: 4.0 on four cores is fully busy.
+// Load is /proc/loadavg over 1, 5 and 15 minutes; 4.0 on four cores is fully busy.
 type Load struct {
 	One, Five, Fifteen float64
 }
@@ -118,8 +111,7 @@ func (r Reader) CPU() (CPU, error) {
 	return cpu, nil
 }
 
-// parseCPUTimes reads a cpu line's counters. Kernels before 2.6.11 have fewer
-// than eight; the missing ones stay zero.
+// parseCPUTimes reads a cpu line's counters; old kernels' missing ones stay zero.
 func parseCPUTimes(fields []string) (CPUTimes, error) {
 	if len(fields) < 4 {
 		return CPUTimes{}, fmt.Errorf("%d counters, want at least 4", len(fields))

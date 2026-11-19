@@ -286,8 +286,7 @@ func commandHelp(cmd command) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// columnWidth is the width of the left column for rows: the longest left
-// side, not counting those longer than maxLeft (they get their own line).
+// columnWidth is the left column's width: the longest left side up to maxLeft.
 func columnWidth(rows [][2]string, maxLeft int) int {
 	width := 0
 	for _, r := range rows {
@@ -298,8 +297,7 @@ func columnWidth(rows [][2]string, maxLeft int) int {
 	return width
 }
 
-// columns lays out rows as two columns: the left one indented by two spaces
-// and width wide, the right one wrapped to helpWidth.
+// columns lays out rows in two columns, the right one wrapped to helpWidth.
 func columns(rows [][2]string, width int) string {
 	col := 2 + width + 3
 	pad := strings.Repeat(" ", col)

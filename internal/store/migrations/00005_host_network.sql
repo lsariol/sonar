@@ -1,5 +1,4 @@
--- The host's network traffic: bytes each interface moved per minute, read
--- from the host's /proc/1/net/dev (the loopback and veth ends left out).
+-- Bytes each host network interface moved per minute.
 
 -- +goose Up
 CREATE TABLE sonar.host_net_minutes (

@@ -137,8 +137,7 @@ type ContainerSeen struct {
 	ExitCode             int
 }
 
-// WriteMinute saves m in one transaction. Writing a minute again replaces
-// it, so retrying after a failure is safe.
+// WriteMinute saves m in one transaction; writing a minute again replaces it.
 func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -285,8 +284,7 @@ func (s *Store) WriteMinute(ctx context.Context, m Minute) error {
 	return nil
 }
 
-// upsertServices records every service the minute mentions and returns their
-// IDs by project and service.
+// upsertServices records every service the minute mentions and returns their IDs.
 func upsertServices(ctx context.Context, tx pgx.Tx, m Minute) (map[string]int, error) {
 	var keys [][2]string
 	seen := make(map[string]bool)

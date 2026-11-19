@@ -1,7 +1,4 @@
-// Package checks checks public addresses from outside, as a visitor would:
-// an HTTPS GET through the internet. It only ever connects to
-// addresses it has just verified are public, so a label can't point it at
-// anything inside the network.
+// Package checks checks public addresses from outside, connecting only to addresses it verified are public.
 package checks
 
 import (
@@ -44,9 +41,7 @@ type Result struct {
 	Refused bool // never contacted: the address isn't a public one
 }
 
-// Validate checks a public-url label's value and says why it can't be
-// checked: https on port 443, and a public hostname (not an IP, not an
-// internal name).
+// Validate says why a public-url label can't be checked: https on 443, to a public hostname.
 func Validate(raw string) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	switch {
@@ -74,9 +69,7 @@ func Validate(raw string) (*url.URL, error) {
 // maxCheckPath is the longest check-path label Sonar accepts.
 const maxCheckPath = 256
 
-// Target is the address to check for a public URL and a check-path label:
-// the URL itself when the path is empty, else the URL's scheme and host with
-// that path (and its query). It says why when either can't be checked.
+// Target is the address to check: the public URL, with the check path in place of its own when set.
 func Target(publicURL, checkPath string) (string, error) {
 	u, err := Validate(publicURL)
 	if err != nil {
@@ -112,8 +105,7 @@ func internalName(host string) bool {
 	return false
 }
 
-// nonPublic are ranges netip's own tests don't cover: shared address space
-// (CGNAT), benchmarking, documentation, reserved, and NAT64.
+// nonPublic are ranges netip doesn't cover: CGNAT, benchmarking, documentation, reserved, NAT64.
 var nonPublic = []netip.Prefix{
 	netip.MustParsePrefix("0.0.0.0/8"),
 	netip.MustParsePrefix("100.64.0.0/10"),
@@ -197,8 +189,7 @@ func (e refusedError) Error() string {
 	return fmt.Sprintf("%s resolves to %s, which isn't a public address, so it wasn't contacted", e.host, e.addr)
 }
 
-// dial resolves the host, refuses it unless every address is public, and
-// connects to a verified address, so DNS can't change between check and use.
+// dial connects only to an address it just verified is public, so DNS can't change in between.
 func (c *Checker) dial(ctx context.Context, network, address string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {

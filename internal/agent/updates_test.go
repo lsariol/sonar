@@ -12,8 +12,7 @@ import (
 	"github.com/lsariol/sonar/internal/store"
 )
 
-// deploy steps the agent through readings 10 s apart, each with list as the
-// containers, and returns the project's state after each.
+// deploy steps the agent through readings 10 s apart and returns the project's state after each.
 type deploy struct {
 	t   *testing.T
 	a   *Agent
@@ -96,17 +95,13 @@ func TestDeploy(t *testing.T) {
 	}
 }
 
-// TestComposeRecreate is exactly what `docker compose up` did on Docker
-// Desktop (recorded through the proxy): it creates the new container first,
-// under a temporary name, while the old one still runs; then stops the old
-// one; then removes it and starts the new one.
+// TestComposeRecreate replays what `docker compose up` did on Docker Desktop: new container first, then the old one goes.
 func TestComposeRecreate(t *testing.T) {
 	dp := newDeploy(t, &fakeChecker{})
 	old := dp.container('a', "v4", "running", "healthy", time.Hour)
 	dp.reading(old)
 
-	// Each step builds its containers at its own reading, so their ages are
-	// right: the new container was created 1 s before the first of them.
+	// Each step builds its containers at its own reading, so their ages are right.
 	steps := []struct {
 		name string
 		list func() []containers.Container
@@ -148,8 +143,7 @@ func TestDeployShowsInSnapshot(t *testing.T) {
 	}
 }
 
-// TestDeployWhileCheckFails: visitors may see errors during the swap; within
-// the 2 minutes it's an update, not an outage (option A).
+// TestDeployWhileCheckFails: errors during the swap are an update, not an outage, within the 2 minutes.
 func TestDeployWhileCheckFails(t *testing.T) {
 	url := "https://plop.mobasity.com"
 	c := &fakeChecker{queue: map[string][]checks.Outcome{url: {checks.OK, checks.Failed, checks.Failed}}}
@@ -248,9 +242,7 @@ func TestScaleUpIsNotAnUpdate(t *testing.T) {
 	}
 }
 
-// TestSwapBetweenReadings: a quick deploy can finish within one 10-second
-// gap, so the old container is gone and the new one running by the next
-// reading. It's still an update.
+// TestSwapBetweenReadings: a deploy that finishes between two readings is still an update.
 func TestSwapBetweenReadings(t *testing.T) {
 	dp := newDeploy(t, &fakeChecker{})
 	dp.reading(dp.container('a', "v0.1.0", "running", "healthy", time.Hour))
@@ -278,9 +270,7 @@ func sonarContainer(id byte, service, version, st, health string, created time.T
 	return c
 }
 
-// restartAgent writes the old agent's snapshot, as it does every 5 s, then
-// starts a new agent on the same state folder after gap, as a deploy of
-// Sonar itself does.
+// restartAgent writes the old agent's snapshot, then starts a new agent on the same folder after gap.
 func (dp *deploy) restartAgent(gap time.Duration) {
 	dp.t.Helper()
 	dp.a.writeSnapshot()
@@ -308,9 +298,7 @@ func sonarAt(first byte, version, st, health string, created time.Time) []contai
 	return out
 }
 
-// TestOwnDeploy: Compose creates Sonar's new containers beside the old ones,
-// the old agent's last snapshot shows both, then the old agent is replaced.
-// The new agent still records the update of each service.
+// TestOwnDeploy: the new agent records the update of each of Sonar's own services.
 func TestOwnDeploy(t *testing.T) {
 	dp := newDeploy(t, &fakeChecker{})
 	old := sonarAt('a', "v0.2.0", "running", "healthy", dp.clk.t.Add(-time.Hour))
@@ -353,8 +341,7 @@ func TestOwnDeployMidUpdate(t *testing.T) {
 	}
 }
 
-// TestAgentRestartIsNotAnUpdate: the same containers before and after (a
-// restart of the agent, or a server reboot: containers keep their IDs).
+// TestAgentRestartIsNotAnUpdate: the same containers before and after (an agent restart, or a reboot).
 func TestAgentRestartIsNotAnUpdate(t *testing.T) {
 	dp := newDeploy(t, &fakeChecker{})
 	cs := sonarAt('a', "v0.2.0", "running", "healthy", dp.clk.t.Add(-time.Hour))
@@ -367,8 +354,7 @@ func TestAgentRestartIsNotAnUpdate(t *testing.T) {
 	}
 }
 
-// TestStaleSnapshotIsIgnored: after more than 10 minutes away, the new agent
-// starts fresh rather than guess.
+// TestStaleSnapshotIsIgnored: after more than 10 minutes away, the new agent starts fresh rather than guess.
 func TestStaleSnapshotIsIgnored(t *testing.T) {
 	dp := newDeploy(t, &fakeChecker{})
 	dp.reading(sonarAt('a', "v0.2.0", "running", "healthy", dp.clk.t.Add(-time.Hour))...)
@@ -434,8 +420,7 @@ func TestFirstDeployFails(t *testing.T) {
 	}
 }
 
-// TestFirstDeployWhileAgentAway: the agent restarted, and a project appeared
-// meanwhile.
+// TestFirstDeployWhileAgentAway: the agent restarted, and a project appeared meanwhile.
 func TestFirstDeployWhileAgentAway(t *testing.T) {
 	dp := newDeploy(t, &fakeChecker{})
 	other := dp.otherProject()
@@ -447,8 +432,7 @@ func TestFirstDeployWhileAgentAway(t *testing.T) {
 	}
 }
 
-// TestNewToTheAgentIsNotAFirstDeploy: services only look new at the agent's
-// first reading, and an older container appearing later isn't a deploy.
+// TestNewToTheAgentIsNotAFirstDeploy: services new only to the agent, or older containers appearing, aren't deploys.
 func TestNewToTheAgentIsNotAFirstDeploy(t *testing.T) {
 	t.Run("the first reading", func(t *testing.T) {
 		dp := newDeploy(t, &fakeChecker{})

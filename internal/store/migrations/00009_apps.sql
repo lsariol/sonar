@@ -1,5 +1,4 @@
--- The apps' own reports (internal/report): how much each usage counter grew,
--- per minute and per day, and when each feature check changed.
+-- The apps' reports: counter growth per minute and per day, and check changes.
 
 -- +goose Up
 CREATE TABLE sonar.app_counter_minutes (

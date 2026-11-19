@@ -1,6 +1,4 @@
-// Package snapshot is the agent's latest view of the host and containers,
-// written to a file the API reads. It's internal: the API
-// builds its public answers from it field by field, never serving it as is.
+// Package snapshot is the agent's latest view, a file the API reads but never serves as is.
 package snapshot
 
 import (
@@ -98,8 +96,7 @@ type DiskTotals struct {
 	BuildCache int64  `json:"build_cache"`
 }
 
-// AppReport is one container's report: its usage counters and feature
-// checks, as last read.
+// AppReport is one container's report as last read.
 type AppReport struct {
 	ContainerID string            `json:"container_id"`
 	Project     string            `json:"project"`
@@ -126,8 +123,7 @@ const (
 	Critical = "critical"
 )
 
-// Condition is something wrong with Spark itself (a full disk, heavy swap,
-// an infrastructure project down) and since when.
+// Condition is something wrong with Spark itself, and since when.
 type Condition struct {
 	ID      string    `json:"id"`      // what kind: disk, memory, project, ...
 	Subject string    `json:"subject"` // which one, for kinds with several: a project, a collector; else ""
@@ -148,8 +144,7 @@ type Collector struct {
 	Error  string     `json:"error,omitempty"`
 }
 
-// Host is the host's latest figures. Pointers are nil until known: CPU needs
-// two readings, the disk its own collector.
+// Host is the host's latest figures; pointers are nil until known.
 type Host struct {
 	ReadAt            time.Time `json:"read_at"`
 	CPUPercent        *float64  `json:"cpu_pct"`
@@ -167,8 +162,7 @@ type Host struct {
 	Network           []NetIf   `json:"network"` // nil without the host's network counters
 }
 
-// NetIf is one host network interface: its rates over the last two
-// readings (nil until there are two) and its counters.
+// NetIf is one host interface: its rates (nil until two readings) and its counters.
 type NetIf struct {
 	Name    string   `json:"name"`
 	RxRate  *float64 `json:"rx_rate"`
@@ -196,8 +190,7 @@ type Project struct {
 	Services []Service      `json:"services"`
 }
 
-// Service is a compose service: its state, its containers, and their usage
-// added up.
+// Service is a compose service: its state, its containers, and their usage added up.
 type Service struct {
 	Service    string         `json:"service"`
 	State      state.State    `json:"state"`
@@ -207,8 +200,7 @@ type Service struct {
 	Containers []Container    `json:"containers"`
 }
 
-// ServiceUpdate is a deploy in progress: since when, and between which
-// versions.
+// ServiceUpdate is a deploy in progress: since when, and between which versions.
 type ServiceUpdate struct {
 	Since time.Time `json:"since"`
 	From  string    `json:"from"`
@@ -233,8 +225,7 @@ type Container struct {
 	Usage        Usage      `json:"usage"`
 }
 
-// Usage is resource use. Rates are per second over the last two readings;
-// nil until there are two, or when a counter started over.
+// Usage is resource use; rates are per second, nil until two readings or after a reset.
 type Usage struct {
 	CPUCores      *float64 `json:"cpu_cores"`
 	MemoryBytes   *uint64  `json:"memory_bytes"`
@@ -262,8 +253,7 @@ type Check struct {
 	ConsecutiveFailures int         `json:"consecutive_failures"`
 }
 
-// Write replaces the snapshot in dir atomically: a temporary file in the same
-// folder, synced, then renamed over the old one.
+// Write replaces the snapshot atomically: a synced temporary file renamed over the old one.
 func Write(dir string, s Snapshot) error {
 	data, err := json.Marshal(s)
 	if err != nil {

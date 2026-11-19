@@ -81,8 +81,7 @@ func TestDockerUse(t *testing.T) {
 	}
 }
 
-// TestDiskEndpoint: the proxy answers with its last measurement at once, and
-// none of Docker's other fields (labels, names) leave it.
+// TestDiskEndpoint: the last measurement answers at once, and no other Docker field leaves the proxy.
 func TestDiskEndpoint(t *testing.T) {
 	fake, s, srv := setupServer(t)
 	status, body := get(t, srv, "GET", "/v1/disk")

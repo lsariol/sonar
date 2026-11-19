@@ -85,8 +85,7 @@ func TestDockerDesktop(t *testing.T) {
 }
 
 func TestBusy(t *testing.T) {
-	// Spark's host cpu line, then the same counters read from inside a
-	// container moments later.
+	// Spark's host cpu line, then the same counters read from a container moments later.
 	host := CPUTimes{User: 23830456, Nice: 25579, System: 16322006, Idle: 2659329804, IOWait: 3480493, SoftIRQ: 577724}
 	later := CPUTimes{User: 23830475, Nice: 25580, System: 16322027, Idle: 2659329865, IOWait: 3480505, SoftIRQ: 577724}
 	got, ok := Busy(host, later)

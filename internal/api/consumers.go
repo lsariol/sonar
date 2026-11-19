@@ -15,16 +15,14 @@ const (
 	monitorRead scope = "monitor:read" // owner detail, for Vista
 )
 
-// consumer is a caller allowed to use the API. Its token is the Cove key Key,
-// passed through to the container under the same name.
+// consumer is a caller of the API; its token is in the environment under the Cove key Key.
 type consumer struct {
 	Name   string
 	Key    string
 	Scopes []scope
 }
 
-// consumers are the callers allowed to use the API. Adding one: a line here,
-// its key in Cove, and its pass-through line in docker-compose.yml.
+// consumers are the API's callers; adding one takes a line here, a Cove key and a compose line.
 var consumers = []consumer{
 	{Name: "mobasity-web", Key: "SHARED_SONAR_MOBASITY_WEB_TOKEN", Scopes: []scope{statusRead}},
 	{Name: "vista", Key: "SHARED_SONAR_VISTA_TOKEN", Scopes: []scope{statusRead, monitorRead}},
@@ -33,15 +31,13 @@ var consumers = []consumer{
 // minTokenLength is the shortest token the API accepts from Cove.
 const minTokenLength = 32
 
-// credential is a consumer and its token's digest; the token itself isn't
-// kept.
+// credential is a consumer and its token's digest; the token itself isn't kept.
 type credential struct {
 	consumer consumer
 	digest   [sha256.Size]byte
 }
 
-// loadCredentials reads each consumer's token. It refuses a missing or short
-// one, so a deploy without the key fails instead of serving without it.
+// loadCredentials reads each token, refusing a missing or short one so a deploy without it fails.
 func loadCredentials(getenv func(string) string, list []consumer) ([]credential, error) {
 	creds := make([]credential, 0, len(list))
 	for _, c := range list {
@@ -57,8 +53,7 @@ func loadCredentials(getenv func(string) string, list []consumer) ([]credential,
 	return creds, nil
 }
 
-// identify returns the consumer whose token this is. Every digest is
-// compared in constant time, so timing says nothing about near misses.
+// identify returns the token's consumer, comparing every digest in constant time.
 func identify(creds []credential, token string) (consumer, bool) {
 	digest := sha256.Sum256([]byte(token))
 	var found consumer
@@ -80,8 +75,7 @@ func (c consumer) may(s scope) bool {
 	return false
 }
 
-// ConsumerInfo is a consumer as `sonar consumers` shows it. It never holds the
-// token, only whether a usable one is set.
+// ConsumerInfo is a consumer as `sonar consumers` shows it: whether its token is usable, never the token.
 type ConsumerInfo struct {
 	Name   string
 	Key    string

@@ -23,8 +23,7 @@ const (
 // infrastructure is the group of the projects Spark itself depends on.
 const infrastructure = "infrastructure"
 
-// conditions judges Spark from the snapshot s: each thing wrong with it,
-// without since (the agent adds it).
+// conditions judges Spark from the snapshot: each thing wrong with it, without since.
 func conditions(s snapshot.Snapshot) []snapshot.Condition {
 	out := []snapshot.Condition{}
 	add := func(id, subject, level, msg string) {
@@ -99,9 +98,7 @@ func conditions(s snapshot.Snapshot) []snapshot.Condition {
 	return out
 }
 
-// trackConditions gives each condition the time it began: kept from the
-// last snapshot while it lasts (whatever its level), now when it's new.
-// Callers hold a.mu.
+// trackConditions gives each condition the time it began, kept while it lasts; callers hold a.mu.
 func (a *Agent) trackConditions(now time.Time, found []snapshot.Condition) []snapshot.Condition {
 	since := make(map[string]time.Time, len(found))
 	for i := range found {
@@ -116,8 +113,7 @@ func (a *Agent) trackConditions(now time.Time, found []snapshot.Condition) []sna
 	return found
 }
 
-// resumeConditions keeps the previous agent's conditions' start times, so a
-// restart doesn't make an old problem look new. Callers hold a.mu.
+// resumeConditions keeps the previous agent's start times, so an old problem doesn't look new; callers hold a.mu.
 func (a *Agent) resumeConditions(snap snapshot.Snapshot) {
 	for _, c := range snap.Conditions {
 		a.conditionSince[conditionKey(c)] = c.Since

@@ -1,6 +1,4 @@
-// Package containers is what sonar-proxy answers and the agent reads: the
-// container list and their stats, as Sonar's own types. Only these fields
-// ever leave the proxy.
+// Package containers is what sonar-proxy answers: the only fields that ever leave it.
 package containers
 
 import "time"
@@ -43,8 +41,7 @@ type Container struct {
 	ReportPort    string     `json:"report_port"`
 }
 
-// Stats are one running container's counters at ReadAt. Rates come from the
-// difference between two readings.
+// Stats are one running container's counters at ReadAt; rates come from two readings.
 type Stats struct {
 	ID            string    `json:"id"`
 	ReadAt        time.Time `json:"read_at"`
@@ -58,8 +55,7 @@ type Stats struct {
 	PIDs          uint64    `json:"pids"`
 }
 
-// ContainersAnswer is the answer to GET /v1/containers: every container, and
-// the ones Docker couldn't inspect, which are left out of the list.
+// ContainersAnswer is GET /v1/containers: every container, and the ones Docker couldn't inspect.
 type ContainersAnswer struct {
 	Containers []Container      `json:"containers"`
 	Failed     []ContainerError `json:"failed"`
@@ -72,8 +68,7 @@ type ContainerError struct {
 	Reason string `json:"reason"`
 }
 
-// StatsAnswer is the answer to GET /v1/stats: every running container's
-// stats, and the ones that couldn't be read.
+// StatsAnswer is GET /v1/stats: every running container's stats, and the ones that failed.
 type StatsAnswer struct {
 	Stats  []Stats      `json:"stats"`
 	Failed []StatsError `json:"failed"`
@@ -85,9 +80,7 @@ type StatsError struct {
 	Reason string `json:"reason"`
 }
 
-// DiskAnswer is the answer to GET /v1/disk: the proxy's latest measurement
-// of what each project keeps on disk. MeasuredAt is nil until the first
-// measurement ends.
+// DiskAnswer is GET /v1/disk: the latest measurement, MeasuredAt nil until the first ends.
 type DiskAnswer struct {
 	MeasuredAt  *time.Time      `json:"measured_at"`
 	Seconds     float64         `json:"seconds"` // how long it took
@@ -98,8 +91,7 @@ type DiskAnswer struct {
 	DockerError string          `json:"docker_error,omitempty"`
 }
 
-// FolderSize is one data folder: the space its files take, how many there
-// are, and how many entries couldn't be read (its total is short by them).
+// FolderSize is one data folder's space and files, and the entries that couldn't be read.
 type FolderSize struct {
 	Name       string `json:"name"`
 	Bytes      int64  `json:"bytes"`
@@ -107,8 +99,7 @@ type FolderSize struct {
 	Unreadable int64  `json:"unreadable"`
 }
 
-// ProjectDocker is what Docker stores for one compose project: the layers
-// only its images have, its containers' writable layers and its volumes.
+// ProjectDocker is a project's own image layers, its containers' writable layers and its volumes.
 type ProjectDocker struct {
 	Project        string `json:"project"`
 	ImageBytes     int64  `json:"image_bytes"`

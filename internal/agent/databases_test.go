@@ -26,8 +26,7 @@ func TestDatabaseProject(t *testing.T) {
 	}
 }
 
-// TestDatabases: each database is matched to its running project, goes into
-// the minute, and a failed connection is retried at the next reading.
+// TestDatabases: databases match their projects, go into the minute, and a failed connection is retried.
 func TestDatabases(t *testing.T) {
 	d := &fakeDocker{list: []containers.Container{running('a', "lys", "lys", ""), running('b', "mobasity-web", "web", "")}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})

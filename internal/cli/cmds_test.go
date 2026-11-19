@@ -299,8 +299,7 @@ func TestConsumersAndMigrations(t *testing.T) {
 	}
 }
 
-// TestControlCharactersCleaned: nothing printed can carry a terminal control
-// sequence, whatever comes from outside.
+// TestControlCharactersCleaned: nothing printed can carry a terminal control sequence.
 func TestControlCharactersCleaned(t *testing.T) {
 	snap := testSnap(now)
 	snap.Checks[0].LastError = "x509: certificate is valid for \x1b]0;owned\x07evil.example"

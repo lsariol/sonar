@@ -44,8 +44,7 @@ func (f *fakeDocker) Stats(context.Context) (containers.StatsAnswer, error) {
 	return f.stats, f.statsErr
 }
 
-// fakeChecker answers each URL with its next queued outcome (ok when none),
-// or refuses it as the guard would.
+// fakeChecker answers each URL with its next queued outcome (ok when none), or refuses it.
 type fakeChecker struct {
 	mu      sync.Mutex
 	queue   map[string][]checks.Outcome
@@ -234,8 +233,7 @@ func TestProjectStates(t *testing.T) {
 	}
 }
 
-// TestRefusedAddress: a label that resolves somewhere private is a
-// configuration problem to report, not an outage.
+// TestRefusedAddress: a label resolving somewhere private is a configuration problem, not an outage.
 func TestRefusedAddress(t *testing.T) {
 	trap := "https://localtest.me"
 	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", trap)}}
@@ -282,8 +280,7 @@ func TestDockerStale(t *testing.T) {
 	}
 }
 
-// TestUninspectedContainerKept: a container Docker couldn't inspect this time
-// keeps its last known details, and attention says so.
+// TestUninspectedContainerKept: a container Docker couldn't inspect keeps its last details, and attention says so.
 func TestUninspectedContainerKept(t *testing.T) {
 	plop, lys := running('a', "plop", "plop", ""), running('l', "lys", "lys", "")
 	d := &fakeDocker{list: []containers.Container{plop, lys}}
@@ -413,9 +410,7 @@ func TestRun(t *testing.T) {
 	}
 }
 
-// TestCheckPath: a check-path label replaces the public URL's path, so a site
-// behind a sign-in is checked where it answers without one; a bad path is
-// reported, not checked.
+// TestCheckPath: a check-path label replaces the public URL's path; a bad one is reported, not checked.
 func TestCheckPath(t *testing.T) {
 	vista := running('a', "vista", "vista", "https://vista.mobasity.com")
 	vista.CheckPath = "/healthz"
@@ -440,8 +435,7 @@ func TestCheckPath(t *testing.T) {
 	}
 }
 
-// TestNetwork: two readings give rates and the bytes moved in the minute;
-// without the host's counters the collector is unsupported, not failing.
+// TestNetwork: two readings give rates and the minute's bytes; without the counters the collector is unsupported.
 func TestNetwork(t *testing.T) {
 	a, clk := newTestAgent(t, &fakeDocker{}, &fakeChecker{})
 	readings := [][]host.Interface{

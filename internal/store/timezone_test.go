@@ -8,8 +8,7 @@ import (
 	"github.com/lsariol/sonar/internal/state"
 )
 
-// TestSessionTimeZone: daily rows stay on their UTC day even when a database
-// session runs in another time zone (pgx sends dates as calendar dates).
+// TestSessionTimeZone: daily rows stay on their UTC day whatever the session's time zone.
 func TestSessionTimeZone(t *testing.T) {
 	open(t)
 	ctx := context.Background()

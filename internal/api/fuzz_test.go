@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// FuzzBearer: no header crashes the parser, and a token it returns is
-// trimmed and non-empty.
+// FuzzBearer: no header crashes the parser, and a token it returns is trimmed and non-empty.
 func FuzzBearer(f *testing.F) {
 	for _, s := range []string{"Bearer abc", "bearer  abc ", "Basic abc", "Bearer", "", " Bearer x y"} {
 		f.Add(s)

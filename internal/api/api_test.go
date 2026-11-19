@@ -143,8 +143,7 @@ type fakeSnapshots struct {
 
 func (f *fakeSnapshots) Load() (snapshot.Snapshot, error) { return f.snap, f.err }
 
-// private values that must never reach a public answer. Release versions of
-// public projects may; an excluded project's (16.3) may not.
+// private values that must never reach a public answer, such as an excluded project's version (16.3).
 var private = []string{
 	strings.Repeat("a", 64), "plop-plop", "https://plop.mobasity.com", "postgres:16.4", "16.3",
 	"sparkdb", "cloudflared", "secret-sidecar", "16621363200", "28.7", "e2e-scratch", "cron", "nightly", "worker",
@@ -328,8 +327,7 @@ func TestRefusalsDontFloodTheLog(t *testing.T) {
 	}
 }
 
-// testUpdates: two of plop's services replaced in one deploy 30 minutes ago
-// (one marker), a failed deploy two days ago, and an excluded project's.
+// testUpdates: one deploy of two plop services, a failed one two days ago, and an excluded project's.
 func testUpdates() []store.Update {
 	deploy := now.Add(-30 * time.Minute)
 	return []store.Update{
@@ -350,8 +348,7 @@ func TestStatusGolden(t *testing.T) {
 	golden(t, "status.json", body)
 }
 
-// TestNothingPrivate checks that no internal value reaches a public answer,
-// and that every key in it is one the design lists.
+// TestNothingPrivate: no internal value reaches a public answer, and every key is one the design lists.
 func TestNothingPrivate(t *testing.T) {
 	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51}, buckets: testBuckets(), updates: testUpdates()}
 	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now)})
@@ -528,8 +525,7 @@ func TestServe(t *testing.T) {
 	}
 }
 
-// TestMonitorStatus: the owner's status has every project, the excluded ones
-// too, in the same shape; the public token can't read it.
+// TestMonitorStatus: the owner's status lists every project in the same shape; the public token can't read it.
 func TestMonitorStatus(t *testing.T) {
 	r := &fakeReader{days: testDays(), response: map[string]int{"plop": 51, "sparkdb": 2}, updates: testUpdates()}
 	s := newTestServer(t, r, &fakeSnapshots{snap: testSnapshot(now.Add(-4 * time.Second))})

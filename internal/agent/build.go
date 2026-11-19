@@ -114,9 +114,7 @@ func (a *Agent) buildHost() *snapshot.Host {
 	return h
 }
 
-// buildProjects groups containers by compose project and service and
-// decides each one's state. Without fresh Docker data, every project is
-// unknown.
+// buildProjects groups containers by project and service and decides their states; stale Docker data is unknown.
 func (a *Agent) buildProjects(now time.Time, checksByProject map[string][]state.State, dockerFresh bool) []snapshot.Project {
 	byProject := make(map[string]map[string][]containers.Container)
 	for _, c := range a.containers {
@@ -174,8 +172,7 @@ func (a *Agent) buildProjects(now time.Time, checksByProject map[string][]state.
 	return projects
 }
 
-// sumUsage adds up a service's containers. Each figure is nil when no
-// container has it.
+// sumUsage adds up a service's containers; each figure is nil when no container has it.
 func sumUsage(us []snapshot.Usage) snapshot.Usage {
 	var total snapshot.Usage
 	for _, u := range us {

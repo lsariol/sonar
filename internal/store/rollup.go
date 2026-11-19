@@ -12,12 +12,10 @@ const (
 	DaysKeptFor    = 380 * 24 * time.Hour
 )
 
-// pruneBatch is how many rows one delete removes, so no delete holds a table
-// for long.
+// pruneBatch is how many rows one delete removes, so none holds a table for long.
 const pruneBatch = 5000
 
-// Rollup recounts the daily rows for day (a UTC day) from its minutes. Run
-// again, it replaces them, so today's rows can be refreshed as it goes.
+// Rollup recounts a UTC day's daily rows from its minutes, replacing them.
 func (s *Store) Rollup(ctx context.Context, day time.Time) error {
 	from := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
 	to := from.AddDate(0, 0, 1)
@@ -80,8 +78,7 @@ func (s *Store) Rollup(ctx context.Context, day time.Time) error {
 	return nil
 }
 
-// Prune deletes rows past their retention, a batch at a time, and returns
-// how many went.
+// Prune deletes rows past their retention, a batch at a time, and returns how many went.
 func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 	minuteCutoff := now.UTC().Add(-MinutesKeptFor)
 	dayCutoff := now.UTC().Add(-DaysKeptFor)

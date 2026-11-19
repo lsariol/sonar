@@ -90,16 +90,14 @@ func (c *CLI) status(ctx context.Context, args []string) error {
 	return nil
 }
 
-// projectHistory is what the database holds about the projects over a stretch
-// of days, by project.
+// projectHistory is what the database holds about the projects over some days, by project.
 type projectHistory struct {
 	days     map[string][]store.DayCounts
 	updates  map[string][]store.Update
 	response map[string]int // average over the last hour, ms
 }
 
-// history reads every project's daily rows and updates for the last days
-// days, with the last hour's response times.
+// history reads every project's daily rows and updates for the last days days, and response times.
 func (c *CLI) history(ctx context.Context, now time.Time, days int) (projectHistory, error) {
 	h := projectHistory{days: make(map[string][]store.DayCounts), updates: make(map[string][]store.Update)}
 	db, err := c.database(ctx)

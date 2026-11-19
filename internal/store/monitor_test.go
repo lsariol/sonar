@@ -9,8 +9,7 @@ import (
 	"github.com/lsariol/sonar/internal/state"
 )
 
-// TestMonitorReads checks the owner's queries, logged in as the reader like
-// the API: state runs and spans, what wasn't up, usage and host detail.
+// TestMonitorReads checks the owner's queries as the reader: runs, spans, trouble, usage, host.
 func TestMonitorReads(t *testing.T) {
 	app := open(t)
 	ctx := context.Background()
@@ -175,8 +174,7 @@ func TestDatabaseUse(t *testing.T) {
 	}
 }
 
-// TestDiskHistory keeps each measurement and reads back the last one in each
-// bucket, the totals first.
+// TestDiskHistory reads back each bucket's last measurement, the totals first.
 func TestDiskHistory(t *testing.T) {
 	app := open(t)
 	ctx := context.Background()

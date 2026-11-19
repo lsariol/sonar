@@ -20,8 +20,7 @@ type DatabaseMonitor interface {
 	DatabaseUse(ctx context.Context) (store.DatabaseUse, error)
 }
 
-// sampleDatabases reads sparkdb's databases, connecting first if needed;
-// a failed connection is retried at the next reading.
+// sampleDatabases reads sparkdb's databases, connecting first; a failed connection is retried next time.
 func (a *Agent) sampleDatabases(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, databasesTimeout)
 	defer cancel()
@@ -56,9 +55,7 @@ func (a *Agent) connectMonitor(ctx context.Context) error {
 	return nil
 }
 
-// buildDatabases is the last reading of sparkdb, each database matched to
-// the compose project it belongs to (<project>_db, with - as _). Callers
-// hold a.mu.
+// buildDatabases is the last reading of sparkdb, each database matched to its project; callers hold a.mu.
 func (a *Agent) buildDatabases() *snapshot.DatabaseServer {
 	if a.databases == nil {
 		return nil
@@ -80,8 +77,7 @@ func (a *Agent) buildDatabases() *snapshot.DatabaseServer {
 	return d
 }
 
-// databaseProject is the compose project a database name points to:
-// lys_db is lys, mobasity_web_db is mobasity-web.
+// databaseProject is the project a database name points to: mobasity_web_db is mobasity-web.
 func databaseProject(name string) string {
 	base, ok := strings.CutSuffix(name, "_db")
 	if !ok {

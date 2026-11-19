@@ -1,5 +1,4 @@
-// Package cli is Sonar's command line: the shell and one-shot commands. Every
-// command is read-only.
+// Package cli is Sonar's command line, the shell and one-shot commands, all read-only.
 package cli
 
 import (
@@ -75,8 +74,7 @@ func New(opts Options) *CLI {
 	return c
 }
 
-// Run reads and runs commands until stdin closes, `exit` is typed, or ctx is
-// cancelled.
+// Run runs commands until stdin closes, `exit` is typed, or ctx ends.
 func (c *CLI) Run(ctx context.Context) {
 	if c.interactive && c.runTerminal(ctx) {
 		return
@@ -103,8 +101,7 @@ func (c *CLI) Exec(ctx context.Context, args []string) error {
 	return cmd.run(c, ctx, args)
 }
 
-// Report shows an error returned by Exec: wrong arguments as a warning,
-// anything else as an error.
+// Report shows Exec's error: wrong arguments as a warning, anything else as an error.
 func Report(err error) {
 	report(err)
 }

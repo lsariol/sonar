@@ -1,7 +1,4 @@
-// Package proxy is sonar-proxy, the only part of Sonar with the Docker
-// socket and the projects' data folders. It answers four fixed requests on a
-// Unix socket and builds every Docker call itself: nothing a caller sends
-// ever reaches Docker.
+// Package proxy is sonar-proxy: four fixed requests on a Unix socket, every Docker call built by itself.
 package proxy
 
 import (
@@ -39,15 +36,13 @@ type Server struct {
 	log    *slog.Logger
 }
 
-// New returns a server that reads Docker through dockerSocket and measures
-// the data folders under storageDir.
+// New returns a server reading Docker through dockerSocket and measuring the folders under storageDir.
 func New(dockerSocket, storageDir string, log *slog.Logger) *Server {
 	d := newDocker(dockerSocket)
 	return &Server{docker: d, disk: newDiskMeter(storageDir, d), log: log}
 }
 
-// Handler routes the four requests; any other path is 404, any other method
-// 405. Query strings and bodies are never read.
+// Handler routes the four requests; query strings and bodies are never read.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/containers", s.containers)
@@ -57,8 +52,7 @@ func (s *Server) Handler() http.Handler {
 	return mux
 }
 
-// Serve answers on a Unix socket at path until ctx is cancelled. A socket
-// left by an earlier run is replaced.
+// Serve answers on a Unix socket at path until ctx ends, replacing one left by an earlier run.
 func (s *Server) Serve(ctx context.Context, path string) error {
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("proxy: removing the old socket %s: %w", path, err)
@@ -68,8 +62,7 @@ func (s *Server) Serve(ctx context.Context, path string) error {
 		return fmt.Errorf("proxy: listening on %s: %w: is the proxy volume mounted at its folder?", path, err)
 	}
 	defer os.Remove(path)
-	// Only the proxy and the agent mount the folder, so anyone who can see
-	// the socket may use it; the agent runs as another user.
+	// Only the proxy and the agent mount the folder, and the agent is another user.
 	if err := os.Chmod(path, 0o666); err != nil {
 		ln.Close()
 		return fmt.Errorf("proxy: making %s usable by the agent: %w", path, err)
@@ -183,8 +176,7 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, answer)
 }
 
-// diskUse is the latest measurement; measuring happens in the background,
-// so asking costs nothing.
+// diskUse is the latest measurement; measuring happens in the background.
 func (s *Server) diskUse(w http.ResponseWriter, r *http.Request) {
 	if s.disk == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "this proxy doesn't measure disk use"})

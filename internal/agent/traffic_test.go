@@ -27,8 +27,7 @@ func (f *fakeTraffic) Traffic(_ context.Context, zone string, from, to time.Time
 	return []cloudflare.Hour{{Host: zone + ".example", Hour: from, Requests: 1}}, nil
 }
 
-// TestTrafficReadings: the first reading goes back a week a day at a time,
-// later ones the last three hours; a failing zone doesn't stop the others.
+// TestTrafficReadings: the first reading backfills a week, later ones three hours; a failing zone stops nothing.
 func TestTrafficReadings(t *testing.T) {
 	f := &fakeTraffic{zones: []cloudflare.Zone{{ID: "z1", Name: "mobasity.com"}, {ID: "z2", Name: "lucassariol.com"}},
 		fail: map[string]bool{"z2": true}}

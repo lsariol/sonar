@@ -1,17 +1,4 @@
--- Rename a project in Sonar's history: everything recorded under the old
--- compose project name moves to the new one, so a renamed project keeps its
--- uptime and its strip of days. One transaction; it only previews (and rolls
--- back) unless apply=1 is given.
---
---   docker exec -i sparkdb psql -U Admin -d sonar_db -v old=botsuite -v new=lys -f - < rename-project.sql
---   docker exec -i sparkdb psql -U Admin -d sonar_db -v old=botsuite -v new=lys -v apply=1 -f - < rename-project.sql
---
--- Services merge by name. When both projects have exactly one service (a
--- plain rename), those two merge even if their names differ; any other
--- service moves across as it is. A minute recorded under both names (the
--- swap) keeps the new project's row; a day recorded under both adds up.
--- Run it once the old project's containers are gone, or Sonar records the
--- old name again.
+-- Moves a project's history to its new name, previewing unless apply=1: psql -v old=X -v new=Y [-v apply=1] -f rename-project.sql
 
 \set ON_ERROR_STOP on
 \if :{?old}

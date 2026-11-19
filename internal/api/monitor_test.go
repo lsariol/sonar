@@ -120,8 +120,7 @@ func TestConditionsGolden(t *testing.T) {
 	golden(t, "monitor-conditions.json", body)
 }
 
-// TestConditionsWithoutDatabase: Spark's state still answers while the
-// database is away, and a stale agent is itself a critical condition.
+// TestConditionsWithoutDatabase: Spark's state answers without the database, and a stale agent is critical.
 func TestConditionsWithoutDatabase(t *testing.T) {
 	s := newTestServer(t, &fakeReader{}, &fakeSnapshots{snap: monitorSnapshot(now.Add(-2 * time.Minute))})
 	s.db = nil
@@ -198,8 +197,7 @@ func TestUsageGolden(t *testing.T) {
 	}
 }
 
-// TestStates: runs of one state join across a short gap, a long gap is an
-// unknown span, and a bad span says which services and checks weren't up.
+// TestStates: short gaps join, long ones are unknown spans, bad spans name what wasn't up.
 func TestStates(t *testing.T) {
 	at := now.Truncate(time.Minute).Add(-3 * time.Hour)
 	m := func(minutes int) time.Time { return at.Add(time.Duration(minutes) * time.Minute) }

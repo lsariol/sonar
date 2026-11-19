@@ -25,8 +25,7 @@ var (
 	idD = strings.Repeat("d", 64) // lys: compose, no healthcheck, CPU quota
 )
 
-// fakeDocker serves the testdata answers like Docker's API and records every
-// call it gets.
+// fakeDocker serves the testdata like Docker's API and records every call.
 type fakeDocker struct {
 	mu        sync.Mutex
 	calls     []string
@@ -212,8 +211,7 @@ func TestStatsReportsFailures(t *testing.T) {
 	}
 }
 
-// TestNoSecretsLeak checks that nothing beyond Sonar's fields gets out: the
-// testdata hides SECRET-MARKER in env, commands, mounts, labels and more.
+// TestNoSecretsLeak: only Sonar's fields get out, though SECRET-MARKER hides all over the testdata.
 func TestNoSecretsLeak(t *testing.T) {
 	_, srv := setup(t)
 	for _, path := range []string{"/v1/containers", "/v1/stats", "/healthz"} {
@@ -224,8 +222,7 @@ func TestNoSecretsLeak(t *testing.T) {
 	}
 }
 
-// TestOnlyFixedDockerCalls sends requests that try to reach other Docker
-// paths and checks that Docker only ever saw the proxy's own fixed calls.
+// TestOnlyFixedDockerCalls: requests aimed at other Docker paths reach only the proxy's fixed calls.
 func TestOnlyFixedDockerCalls(t *testing.T) {
 	fake, srv := setup(t)
 
@@ -263,8 +260,7 @@ func TestOnlyFixedDockerCalls(t *testing.T) {
 	}
 }
 
-// TestOneBadInspect: a container Docker can't inspect is reported, and the
-// others are still listed.
+// TestOneBadInspect: a container Docker can't inspect is reported, and the others are still listed.
 func TestOneBadInspect(t *testing.T) {
 	fake := &fakeDocker{}
 	dockerSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -306,8 +302,7 @@ func TestHealth(t *testing.T) {
 	}
 }
 
-// TestServeOnSocket runs the proxy on a real Unix socket and reads it with the
-// agent's client.
+// TestServeOnSocket runs the proxy on a real Unix socket, read by the agent's client.
 func TestServeOnSocket(t *testing.T) {
 	fake := &fakeDocker{}
 	dockerSrv := httptest.NewServer(fake)

@@ -16,8 +16,7 @@ type DayCounts struct {
 	LatencyMs                    *int
 }
 
-// ProjectDays returns the daily rows from one UTC date to another, both
-// included.
+// ProjectDays returns the daily rows between two UTC dates, both included.
 func (s *Store) ProjectDays(ctx context.Context, from, to time.Time) ([]DayCounts, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT project, day, minutes_up, minutes_updating, minutes_degraded, minutes_down, latency_ms_avg
@@ -39,8 +38,7 @@ func (s *Store) ProjectDays(ctx context.Context, from, to time.Time) ([]DayCount
 	return days, nil
 }
 
-// ResponseTimes is each project's average latency of answered checks since
-// since, in milliseconds. Projects without checks aren't in it.
+// ResponseTimes is each checked project's average latency since since, in milliseconds.
 func (s *Store) ResponseTimes(ctx context.Context, since time.Time) (map[string]int, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT s.project,
@@ -66,8 +64,7 @@ func (s *Store) ResponseTimes(ctx context.Context, since time.Time) (map[string]
 	return out, nil
 }
 
-// UpdatesBetween returns the updates that started from from to to, oldest
-// first.
+// UpdatesBetween returns the updates that started from from to to, oldest first.
 func (s *Store) UpdatesBetween(ctx context.Context, from, to time.Time) ([]Update, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT s.project, s.service, u.started_at, u.ended_at, u.from_version, u.to_version, u.outcome
@@ -97,8 +94,7 @@ type HostBucket struct {
 	MemPctAvg, MemPctMin, MemMax *float64
 }
 
-// HostHistory adds the host's minutes from from to to into buckets of the
-// given size, aligned to UTC. Buckets without minutes aren't returned.
+// HostHistory adds the host's minutes into buckets of the given size, aligned to UTC.
 func (s *Store) HostHistory(ctx context.Context, from, to time.Time, bucket time.Duration) ([]HostBucket, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT date_bin($3, minute, TIMESTAMPTZ '2000-01-01 00:00:00+00') AS bucket,
