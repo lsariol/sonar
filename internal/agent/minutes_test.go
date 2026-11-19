@@ -115,6 +115,25 @@ func TestMinuteTotals(t *testing.T) {
 	}
 }
 
+// TestCheckStateCarriesOver: a check degraded at the end of one minute was degraded at the start of the next.
+func TestCheckStateCarriesOver(t *testing.T) {
+	url := "https://plop.mobasity.com"
+	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", url)}}
+	c := &fakeChecker{queue: map[string][]checks.Outcome{url: {checks.Slow, checks.Slow, checks.OK, checks.OK}}}
+	a, clk := newTestAgent(t, d, c)
+	minuteStart := start.Truncate(time.Minute)
+	aMinute(t, a, clk, d, minuteStart, 0)
+	aMinute(t, a, clk, d, minuteStart.Add(time.Minute), 30_000_000_000)
+	a.closeMinutes(minuteStart.Add(2*time.Minute + flushDelay))
+	if len(a.pending) != 2 {
+		t.Fatalf("%d minutes pending, want 2", len(a.pending))
+	}
+	second := a.pending[1].Checks
+	if len(second) != 1 || second[0].Slow != 0 || second[0].State != state.Degraded {
+		t.Errorf("second minute's check = %+v; want no slow answers but degraded until its first check", second)
+	}
+}
+
 func TestFlushRetriesInOrder(t *testing.T) {
 	d := &fakeDocker{list: []containers.Container{running('a', "plop", "plop", "")}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})

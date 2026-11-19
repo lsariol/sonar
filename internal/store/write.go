@@ -116,7 +116,7 @@ type CheckMinute struct {
 	Attempts, Failures, Slow int
 	LatencyAvgMs             *int // over the checks that answered
 	LatencyMaxMs             *int
-	State                    state.State // after the minute's last check
+	State                    state.State // the worst it held during the minute
 	LastError                string      // the last failed check's error; "" when none failed
 }
 

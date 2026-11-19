@@ -536,8 +536,9 @@ func (a *Agent) runChecks(ctx context.Context) {
 		} else {
 			st.failures = 0
 		}
+		prev := st.state
 		st.state = state.Check(st.state, st.failures, r.Outcome == checks.Slow)
-		a.addCheckMinute(a.opts.Now(), t, r, st.state)
+		a.addCheckMinute(a.opts.Now(), t, r, prev, st.state)
 	}
 	a.record(checksCollector, nil)
 }

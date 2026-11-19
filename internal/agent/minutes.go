@@ -185,15 +185,17 @@ func (a *Agent) addNetworkMinute(now time.Time, grown map[string]counters) {
 	}
 }
 
-func (a *Agent) addCheckMinute(now time.Time, t target, r checks.Result, st state.State) {
+// addCheckMinute files one check: prev is the state it held since the last check, st its state now.
+func (a *Agent) addCheckMinute(now time.Time, t target, r checks.Result, prev, st state.State) {
 	b := a.bucketAt(now)
 	k := serviceKey{t.project, t.service}
 	c := b.checks[k]
 	if c == nil {
-		c = &checkSum{}
+		// The state carried in from the last minute held until now, so it's part of this minute too.
+		c = &checkSum{state: prev}
 		b.checks[k] = c
 	}
-	c.url, c.state = t.url, st
+	c.url, c.state = t.url, state.Worst(c.state, st)
 	c.attempts++
 	switch r.Outcome {
 	case checks.Failed:
