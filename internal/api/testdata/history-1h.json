@@ -10,12 +10,16 @@
       "cpu_pct": {
         "avg": 10,
         "min": 5,
-        "max": 20
+        "max": 20,
+        "minute_min": 10,
+        "minute_max": 10
       },
       "mem_used_pct": {
         "avg": 20.5,
         "min": 20.4,
-        "max": 20.6
+        "max": 20.6,
+        "minute_min": 20.5,
+        "minute_max": 20.5
       },
       "coverage_pct": 100
     },
@@ -31,7 +35,9 @@
       "mem_used_pct": {
         "avg": 21,
         "min": 21,
-        "max": 21
+        "max": 21,
+        "minute_min": 21,
+        "minute_max": 21
       },
       "coverage_pct": 50
     },
@@ -376,12 +382,16 @@
       "cpu_pct": {
         "avg": 33.33,
         "min": 33.33,
-        "max": 33.33
+        "max": 33.33,
+        "minute_min": 33.33,
+        "minute_max": 33.33
       },
       "mem_used_pct": {
         "avg": 22.12,
         "min": 22.1,
-        "max": 22.2
+        "max": 22.2,
+        "minute_min": 22.12,
+        "minute_max": 22.12
       },
       "coverage_pct": 8.3
     }

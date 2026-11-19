@@ -2,6 +2,11 @@
 
 All notable changes to Sonar. Versions follow [semantic versioning](https://semver.org).
 
+## v0.3.1 (unreleased)
+
+### Added
+- Each point in the host history gives `minute_min` and `minute_max` for CPU and memory: the quietest and busiest one-minute average in the bucket. A chart can shade the range a minute actually reached, so a few seconds of a build no longer show as 100% on every range. `min` and `max` are unchanged. The owner's host chart has them too.
+
 ## v0.3.0 (2026-11-19)
 
 Owner detail for a private dashboard, and new things Sonar watches: Spark's own health, the network, the databases, disk use, traffic from Cloudflare and what the apps report about themselves.

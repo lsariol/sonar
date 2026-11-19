@@ -356,6 +356,7 @@ func TestNothingPrivate(t *testing.T) {
 		"projects", "project", "version", "evidence", "response_ms", "days", "date", "uptime_pct",
 		"observed_minutes", "degraded_minutes", "down_minutes",
 		"range", "from", "to", "bucket_seconds", "points", "t", "cpu_pct", "mem_used_pct", "avg", "min", "max",
+		"minute_min", "minute_max",
 		"updates", "started", "ended", "seconds", "outcome"}
 
 	for _, path := range []string{"/v1/status", "/v1/status?days=380", "/v1/status/history?range=1h", "/healthz"} {
@@ -415,11 +416,13 @@ func TestStaleSnapshot(t *testing.T) {
 func testBuckets() []store.HostBucket {
 	from, _ := historySpan(now, historyRanges["1h"])
 	return []store.HostBucket{
-		{Start: from, Samples: 12, Expected: 12, CPUAvg: f(10), CPUMin: f(5), CPUMax: f(20),
-			MemPctAvg: f(20.5), MemPctMin: f(20.4), MemMax: f(20.6)},
-		{Start: from.Add(2 * time.Minute), Samples: 6, Expected: 12, MemPctAvg: f(21), MemPctMin: f(21), MemMax: f(21)},
+		{Start: from, Samples: 12, Expected: 12, CPUAvg: f(10), CPUMin: f(5), CPUMax: f(20), CPUMinuteMin: f(10), CPUMinuteMax: f(10),
+			MemPctAvg: f(20.5), MemPctMin: f(20.4), MemMax: f(20.6), MemMinuteMin: f(20.5), MemMinuteMax: f(20.5)},
+		{Start: from.Add(2 * time.Minute), Samples: 6, Expected: 12,
+			MemPctAvg: f(21), MemPctMin: f(21), MemMax: f(21), MemMinuteMin: f(21), MemMinuteMax: f(21)},
 		{Start: from.Add(59 * time.Minute), Samples: 1, Expected: 12, CPUAvg: f(33.333), CPUMin: f(33.333), CPUMax: f(33.333),
-			MemPctAvg: f(22.123456), MemPctMin: f(22.1), MemMax: f(22.2)},
+			CPUMinuteMin: f(33.333), CPUMinuteMax: f(33.333),
+			MemPctAvg: f(22.123456), MemPctMin: f(22.1), MemMax: f(22.2), MemMinuteMin: f(22.123456), MemMinuteMax: f(22.123456)},
 	}
 }
 
@@ -430,6 +433,16 @@ func TestHistoryGolden(t *testing.T) {
 		t.Fatalf("%d: %s", status, body)
 	}
 	golden(t, "history-1h.json", body)
+}
+
+func TestNewSpread(t *testing.T) {
+	got := newSpread(f(30.004), f(1), f(99.996), f(12.345), f(55.555))
+	if got == nil || *got != (spread{Avg: 30, Min: 1, Max: 100, MinuteMin: 12.35, MinuteMax: 55.56}) {
+		t.Errorf("newSpread = %+v", got)
+	}
+	if got := newSpread(f(30), f(1), f(99), nil, f(55)); got != nil {
+		t.Errorf("a missing minute reading gives %+v, want nil", got)
+	}
 }
 
 func TestHistoryRanges(t *testing.T) {

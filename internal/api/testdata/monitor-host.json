@@ -61,12 +61,16 @@
       "cpu_pct": {
         "avg": 10,
         "min": 5,
-        "max": 20
+        "max": 20,
+        "minute_min": 10,
+        "minute_max": 10
       },
       "mem_used_pct": {
         "avg": 25,
         "min": 24,
-        "max": 26
+        "max": 26,
+        "minute_min": 25,
+        "minute_max": 25
       },
       "mem_used_bytes": 4000000000,
       "mem_total_bytes": 16000000000,

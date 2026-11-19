@@ -92,6 +92,8 @@ type HostBucket struct {
 	Samples, Expected            int
 	CPUAvg, CPUMin, CPUMax       *float64 // nil without a CPU reading
 	MemPctAvg, MemPctMin, MemMax *float64
+	// The quietest and busiest one-minute average, so a few busy seconds don't fill the band.
+	CPUMinuteMin, CPUMinuteMax, MemMinuteMin, MemMinuteMax *float64
 }
 
 // HostHistory adds the host's minutes into buckets of the given size, aligned to UTC.
@@ -102,7 +104,8 @@ func (s *Store) HostHistory(ctx context.Context, from, to time.Time, bucket time
 		       sum(cpu_pct_avg * cpu_samples) / nullif(sum(cpu_samples) FILTER (WHERE cpu_pct_avg IS NOT NULL), 0),
 		       min(cpu_pct_min), max(cpu_pct_max),
 		       sum(mem_used_pct_avg * samples) / nullif(sum(samples), 0),
-		       min(mem_used_pct_min), max(mem_used_pct_max)
+		       min(mem_used_pct_min), max(mem_used_pct_max),
+		       min(cpu_pct_avg), max(cpu_pct_avg), min(mem_used_pct_avg), max(mem_used_pct_avg)
 		  FROM sonar.host_minutes
 		 WHERE minute >= $1 AND minute < $2
 		 GROUP BY 1
@@ -112,11 +115,9 @@ func (s *Store) HostHistory(ctx context.Context, from, to time.Time, bucket time
 	}
 	buckets, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (HostBucket, error) {
 		var b HostBucket
-		var cpuAvg, cpuMin, cpuMax, memAvg, memMin, memMax *float64
-		err := r.Scan(&b.Start, &b.Samples, &b.Expected, &cpuAvg, &cpuMin, &cpuMax, &memAvg, &memMin, &memMax)
+		err := r.Scan(&b.Start, &b.Samples, &b.Expected, &b.CPUAvg, &b.CPUMin, &b.CPUMax, &b.MemPctAvg, &b.MemPctMin, &b.MemMax,
+			&b.CPUMinuteMin, &b.CPUMinuteMax, &b.MemMinuteMin, &b.MemMinuteMax)
 		b.Start = b.Start.UTC()
-		b.CPUAvg, b.CPUMin, b.CPUMax = cpuAvg, cpuMin, cpuMax
-		b.MemPctAvg, b.MemPctMin, b.MemMax = memAvg, memMin, memMax
 		return b, err
 	})
 	if err != nil {

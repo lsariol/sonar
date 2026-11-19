@@ -98,9 +98,20 @@ type hostPoint struct {
 }
 
 type spread struct {
-	Avg float64 `json:"avg"`
-	Min float64 `json:"min"`
-	Max float64 `json:"max"`
+	Avg       float64 `json:"avg"`
+	Min       float64 `json:"min"`
+	Max       float64 `json:"max"`
+	MinuteMin float64 `json:"minute_min"`
+	MinuteMax float64 `json:"minute_max"`
+}
+
+// newSpread rounds a bucket's readings, or is nil when any is missing.
+func newSpread(avg, lo, hi, minuteLo, minuteHi *float64) *spread {
+	if avg == nil || lo == nil || hi == nil || minuteLo == nil || minuteHi == nil {
+		return nil
+	}
+	return &spread{Avg: round(*avg, 2), Min: round(*lo, 2), Max: round(*hi, 2),
+		MinuteMin: round(*minuteLo, 2), MinuteMax: round(*minuteHi, 2)}
 }
 
 // publicState is a state as the status page names it.
@@ -370,12 +381,8 @@ func buildHistory(now time.Time, name string, r historyRange, buckets []store.Ho
 		p := hostPoint{T: t}
 		if b, ok := byStart[t]; ok {
 			p.CoveragePct = round(math.Min(100, pct(b.Samples, full)), 1)
-			if b.CPUAvg != nil && b.CPUMin != nil && b.CPUMax != nil {
-				p.CPUPct = &spread{Avg: round(*b.CPUAvg, 2), Min: round(*b.CPUMin, 2), Max: round(*b.CPUMax, 2)}
-			}
-			if b.MemPctAvg != nil && b.MemPctMin != nil && b.MemMax != nil {
-				p.MemUsedPct = &spread{Avg: round(*b.MemPctAvg, 2), Min: round(*b.MemPctMin, 2), Max: round(*b.MemMax, 2)}
-			}
+			p.CPUPct = newSpread(b.CPUAvg, b.CPUMin, b.CPUMax, b.CPUMinuteMin, b.CPUMinuteMax)
+			p.MemUsedPct = newSpread(b.MemPctAvg, b.MemPctMin, b.MemMax, b.MemMinuteMin, b.MemMinuteMax)
 		}
 		answer.Points = append(answer.Points, p)
 	}

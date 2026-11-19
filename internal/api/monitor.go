@@ -379,12 +379,8 @@ func buildMonitorHost(now time.Time, name string, r historyRange, snap *snapshot
 		p := hostDetailPoint{T: t}
 		if b, ok := byStart[t]; ok {
 			p.CoveragePct = round(min(100, pct(b.Samples, full)), 1)
-			if b.CPUAvg != nil && b.CPUMin != nil && b.CPUMax != nil {
-				p.CPUPct = &spread{Avg: round(*b.CPUAvg, 2), Min: round(*b.CPUMin, 2), Max: round(*b.CPUMax, 2)}
-			}
-			if b.MemPctAvg != nil && b.MemPctMin != nil && b.MemMax != nil {
-				p.MemUsedPct = &spread{Avg: round(*b.MemPctAvg, 2), Min: round(*b.MemPctMin, 2), Max: round(*b.MemMax, 2)}
-			}
+			p.CPUPct = newSpread(b.CPUAvg, b.CPUMin, b.CPUMax, b.CPUMinuteMin, b.CPUMinuteMax)
+			p.MemUsedPct = newSpread(b.MemPctAvg, b.MemPctMin, b.MemMax, b.MemMinuteMin, b.MemMinuteMax)
 			p.MemUsedBytes, p.MemTotalBytes, p.SwapUsedBytes = b.MemUsedAvg, b.MemTotal, b.SwapUsedAvg
 			if b.Load1Avg != nil && b.Load1Max != nil {
 				p.Load1 = &peak{Avg: round(*b.Load1Avg, 2), Max: round(*b.Load1Max, 2)}

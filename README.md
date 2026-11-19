@@ -95,7 +95,7 @@ Every `/v1/` request needs `Authorization: Bearer <token>`. Each consumer's scop
 |---|---|---|
 | `GET /healthz` | none | Whether the API can reach its database, and its version |
 | `GET /v1/status?days=90` | `status:read` | Each public project's state, version, uptime and daily history |
-| `GET /v1/status/history?range=24h` | `status:read` | The host's CPU and memory, and the deploys, for a chart |
+| `GET /v1/status/history?range=24h` | `status:read` | The host's CPU and memory (average, extremes, and busiest and quietest minute), and the deploys, for a chart |
 | `GET /v1/monitor/status?days=90` | `monitor:read` | `/v1/status` with every project |
 | `GET /v1/monitor/projects` | `monitor:read` | Every project now: its group, since when it's in its state, its services, containers and checks |
 | `GET /v1/monitor/conditions` | `monitor:read` | Spark's own conditions and each collector's state; answers without the database |

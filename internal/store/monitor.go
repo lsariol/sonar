@@ -198,6 +198,7 @@ func (s *Store) HostDetail(ctx context.Context, from, to time.Time, bucket time.
 		       min(cpu_pct_min), max(cpu_pct_max),
 		       sum(mem_used_pct_avg * samples) / nullif(sum(samples), 0),
 		       min(mem_used_pct_min), max(mem_used_pct_max),
+		       min(cpu_pct_avg), max(cpu_pct_avg), min(mem_used_pct_avg), max(mem_used_pct_avg),
 		       (sum(mem_used_bytes_avg * samples) / nullif(sum(samples), 0))::bigint, max(mem_total_bytes),
 		       (sum(swap_used_bytes_avg * samples) / nullif(sum(samples), 0))::bigint,
 		       sum(load1_avg * samples) / nullif(sum(samples), 0), max(load1_max),
@@ -213,6 +214,7 @@ func (s *Store) HostDetail(ctx context.Context, from, to time.Time, bucket time.
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (HostDetailBucket, error) {
 		var b HostDetailBucket
 		err := r.Scan(&b.Start, &b.Samples, &b.Expected, &b.CPUAvg, &b.CPUMin, &b.CPUMax, &b.MemPctAvg, &b.MemPctMin, &b.MemMax,
+			&b.CPUMinuteMin, &b.CPUMinuteMax, &b.MemMinuteMin, &b.MemMinuteMax,
 			&b.MemUsedAvg, &b.MemTotal, &b.SwapUsedAvg, &b.Load1Avg, &b.Load1Max, &b.DiskUsed, &b.DiskTotal)
 		b.Start = b.Start.UTC()
 		return b, err

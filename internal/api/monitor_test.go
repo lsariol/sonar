@@ -153,7 +153,8 @@ func TestMonitorHostGolden(t *testing.T) {
 	mem, total, swap, disk, diskTotal := int64(4e9), int64(16e9), int64(1e8), int64(400e9), int64(450e9)
 	r := &fakeReader{updates: testUpdates(), hostDetail: []store.HostDetailBucket{
 		{HostBucket: store.HostBucket{Start: start, Samples: 12, Expected: 12, CPUAvg: f(10), CPUMin: f(5), CPUMax: f(20),
-			MemPctAvg: f(25), MemPctMin: f(24), MemMax: f(26)},
+			CPUMinuteMin: f(10), CPUMinuteMax: f(10), MemPctAvg: f(25), MemPctMin: f(24), MemMax: f(26),
+			MemMinuteMin: f(25), MemMinuteMax: f(25)},
 			MemUsedAvg: &mem, MemTotal: &total, SwapUsedAvg: &swap, Load1Avg: f(0.5), Load1Max: f(1.25),
 			DiskUsed: &disk, DiskTotal: &diskTotal},
 	}, network: []store.NetBucket{

@@ -320,7 +320,12 @@ func TestReads(t *testing.T) {
 	if b0.Samples != 60 || *b0.CPUAvg != 30 || *b0.CPUMin != 0 || *b0.CPUMax != 94 {
 		t.Errorf("first bucket: %d samples, cpu %v/%v/%v; want 60, 30/0/94", b0.Samples, *b0.CPUAvg, *b0.CPUMin, *b0.CPUMax)
 	}
-	if b1.Samples != 6 || b1.CPUAvg != nil || b1.MemPctAvg == nil {
+	// The busiest minute averaged 50%, though one sample reached 94%.
+	if *b0.CPUMinuteMin != 10 || *b0.CPUMinuteMax != 50 || *b0.MemMinuteMin != 20.5 || *b0.MemMinuteMax != 20.5 {
+		t.Errorf("first bucket's minutes: cpu %v–%v, memory %v–%v; want 10–50 and 20.5–20.5",
+			*b0.CPUMinuteMin, *b0.CPUMinuteMax, *b0.MemMinuteMin, *b0.MemMinuteMax)
+	}
+	if b1.Samples != 6 || b1.CPUAvg != nil || b1.CPUMinuteMax != nil || b1.MemPctAvg == nil || b1.MemMinuteMax == nil {
 		t.Errorf("second bucket (no CPU): %+v", b1)
 	}
 
