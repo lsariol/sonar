@@ -224,7 +224,7 @@ func toContainer(c inspected) containers.Container {
 		PublicURL:     labels[containers.PublicURLLabel],
 		CheckPath:     labels[containers.CheckPathLabel],
 		Version:       labels[containers.VersionLabel],
-		Tier:          labels[containers.TierLabel],
+		Group:         labels[containers.GroupLabel],
 		ReportPort:    labels[containers.ReportPortLabel],
 	}
 	if out.Project == "" {

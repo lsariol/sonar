@@ -71,7 +71,7 @@ Labels Sonar reads on other projects' containers:
 | `com.mobasity.public-url` | The service's public address, which Sonar checks from outside every 30 seconds |
 | `com.mobasity.check-path` | A path to check instead of the public address's own, such as `/healthz` for a site behind a sign-in |
 | `com.mobasity.version` | The version the container runs |
-| `com.mobasity.tier` | `infra`, `data` or `app`; an infra or data project that's down is one of Spark's conditions |
+| `com.mobasity.group` | `infrastructure` for a project Spark itself depends on (one that's down is one of Spark's conditions), or `app` |
 | `com.mobasity.report-port` | The port where the app serves its report (below) |
 
 Host access, in `docker-compose.yml`:
@@ -92,7 +92,7 @@ Every `/v1/` request needs `Authorization: Bearer <token>`. Each consumer's scop
 | `GET /v1/status?days=90` | `status:read` | Each public project's state, version, uptime and daily history |
 | `GET /v1/status/history?range=24h` | `status:read` | The host's CPU and memory, and the deploys, for a chart |
 | `GET /v1/monitor/status?days=90` | `monitor:read` | `/v1/status` with every project |
-| `GET /v1/monitor/projects` | `monitor:read` | Every project now: its tier, since when it's in its state, its services, containers and checks |
+| `GET /v1/monitor/projects` | `monitor:read` | Every project now: its group, since when it's in its state, its services, containers and checks |
 | `GET /v1/monitor/conditions` | `monitor:read` | Spark's own conditions and each collector's state; answers without the database |
 | `GET /v1/monitor/states?range=7d` | `monitor:read` | Each project's state changes, with the services and checks that weren't up |
 | `GET /v1/monitor/host?range=24h` | `monitor:read` | The host now and over time: CPU, memory, swap, load, disk, network |

@@ -7,7 +7,7 @@
       "id": "project",
       "subject": "cove",
       "level": "warning",
-      "message": "cove (infra) is degraded",
+      "message": "cove (infrastructure) is degraded",
       "since": "2026-10-21T15:01:01Z"
     },
     {

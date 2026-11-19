@@ -190,7 +190,7 @@ type Disk struct {
 // Project is a compose project and its services.
 type Project struct {
 	Project  string         `json:"project"`
-	Tier     string         `json:"tier"` // from the tier label; "" until Lighthouse sets it
+	Group    string         `json:"group"` // from the group label: infrastructure, app, or "" when unset
 	State    state.State    `json:"state"`
 	Evidence state.Evidence `json:"evidence"`
 	Services []Service      `json:"services"`

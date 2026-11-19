@@ -26,7 +26,7 @@ type monitorProjectsAnswer struct {
 
 type monitorProject struct {
 	Project         string           `json:"project"`
-	Tier            *string          `json:"tier"` // nil until Lighthouse labels the containers
+	Group           *string          `json:"group"` // infrastructure or app, from the group label; nil when unset
 	State           string           `json:"state"`
 	StateSince      *time.Time       `json:"state_since"`       // nil when unknown
 	StateSinceExact bool             `json:"state_since_exact"` // false: at least since then (the history starts there)
@@ -118,7 +118,7 @@ func buildMonitorProjects(now time.Time, snap *snapshot.Snapshot, runs map[strin
 		if !answer.Fresh {
 			st = state.Unknown
 		}
-		mp := monitorProject{Project: p.Project, Tier: optString(p.Tier), State: publicState(st), Evidence: string(p.Evidence),
+		mp := monitorProject{Project: p.Project, Group: optString(p.Group), State: publicState(st), Evidence: string(p.Evidence),
 			Version: projectVersion(p), Services: []monitorService{}, Checks: checksOf[p.Project]}
 		if mp.Checks == nil {
 			mp.Checks = []monitorCheck{}

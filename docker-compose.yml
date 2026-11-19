@@ -11,6 +11,8 @@ services:
   sonar-proxy:
     build: .
     container_name: sonar-proxy
+    labels:
+      com.mobasity.group: infrastructure   # Spark depends on it
     command: ["/sonar", "proxy"]
     restart: unless-stopped
     network_mode: none                 # reached only through the socket in the proxy volume
@@ -34,6 +36,8 @@ services:
   sonar-agent:
     build: .
     container_name: sonar-agent
+    labels:
+      com.mobasity.group: infrastructure   # Spark depends on it
     command: ["/sonar", "agent"]
     restart: unless-stopped
     user: "10001:10001"
@@ -62,6 +66,8 @@ services:
   sonar-api:
     build: .
     container_name: sonar-api
+    labels:
+      com.mobasity.group: infrastructure   # Spark depends on it
     command: ["/sonar", "api"]
     restart: unless-stopped
     user: "10001:10001"

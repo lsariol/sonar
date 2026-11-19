@@ -20,9 +20,9 @@ func TestConditions(t *testing.T) {
 			Load15: 3, CorePercents: []float64{1, 2, 3, 4},
 			Disk: &snapshot.Disk{Total: 450e9, Used: 200e9, Available: 250e9, UsedPercent: 44, Inodes: 1000, InodesFree: 900}},
 		Projects: []snapshot.Project{
-			{Project: "sparkdb", Tier: "data", State: state.Up},
-			{Project: "plop", Tier: "app", State: state.Down}, // an app down isn't Spark's condition
-			{Project: "lys", State: state.Down},               // no tier yet: nothing to judge by
+			{Project: "sparkdb", Group: "infrastructure", State: state.Up},
+			{Project: "plop", Group: "app", State: state.Down}, // an app down isn't Spark's condition
+			{Project: "lys", State: state.Down},                // no group: nothing to judge by
 		},
 	}
 	if got := conditions(healthy); len(got) != 0 {
@@ -39,8 +39,8 @@ func TestConditions(t *testing.T) {
 		Load15: 9, CorePercents: []float64{1, 2, 3, 4},
 		Disk: &snapshot.Disk{Total: 450e9, Used: 400e9, Available: 50e9, UsedPercent: 88.9, Inodes: 1000, InodesFree: 40}}
 	sick.Projects = []snapshot.Project{
-		{Project: "sparkdb", Tier: "data", State: state.Down},
-		{Project: "cove", Tier: "infra", State: state.Degraded},
+		{Project: "sparkdb", Group: "infrastructure", State: state.Down},
+		{Project: "cove", Group: "infrastructure", State: state.Degraded},
 	}
 	got := conditions(sick)
 	want := []string{
@@ -58,7 +58,7 @@ func TestConditions(t *testing.T) {
 		if c.ID == "disk" && c.Message != "The disk is 89% full: 50.0 GB free of 450.0 GB" {
 			t.Errorf("disk message = %q", c.Message)
 		}
-		if c.ID == "project" && c.Subject == "sparkdb" && c.Message != "sparkdb (data) is down" {
+		if c.ID == "project" && c.Subject == "sparkdb" && c.Message != "sparkdb (infrastructure) is down" {
 			t.Errorf("sparkdb message = %q", c.Message)
 		}
 	}
@@ -69,7 +69,7 @@ func TestConditions(t *testing.T) {
 // over.
 func TestConditionSince(t *testing.T) {
 	cove := running('a', "cove", "cove", "")
-	cove.Tier = "infra"
+	cove.Group = "infrastructure"
 	cove.Health = "starting" // degraded
 	d := &fakeDocker{list: []containers.Container{cove}}
 	a, clk := newTestAgent(t, d, &fakeChecker{})

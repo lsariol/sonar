@@ -15,7 +15,7 @@ const (
 	PublicURLLabel  = "com.mobasity.public-url"
 	CheckPathLabel  = "com.mobasity.check-path" // checked instead of the public URL's own path
 	VersionLabel    = "com.mobasity.version"
-	TierLabel       = "com.mobasity.tier"        // data, infra or app, as Lighthouse's tier setting says
+	GroupLabel      = "com.mobasity.group"       // infrastructure (Spark depends on it) or app
 	ReportPortLabel = "com.mobasity.report-port" // where the app serves its report (internal/report)
 )
 
@@ -39,7 +39,7 @@ type Container struct {
 	PublicURL     string     `json:"public_url"`
 	CheckPath     string     `json:"check_path"`
 	Version       string     `json:"version"`
-	Tier          string     `json:"tier"`
+	Group         string     `json:"group"`
 	ReportPort    string     `json:"report_port"`
 }
 

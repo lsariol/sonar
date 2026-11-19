@@ -131,7 +131,7 @@ func (a *Agent) buildProjects(now time.Time, checksByProject map[string][]state.
 		p := snapshot.Project{Project: name, Services: []snapshot.Service{}}
 		for _, cs := range services {
 			for _, c := range cs {
-				p.Tier = cmp.Or(p.Tier, c.Tier)
+				p.Group = cmp.Or(p.Group, c.Group)
 			}
 		}
 		var counted []state.State

@@ -20,8 +20,8 @@ const (
 	connWarnPct, connCritPct   = 80, 95 // of sparkdb's connections in use
 )
 
-// Lighthouse's tiers whose projects Spark itself depends on.
-const infraTier, dataTier = "infra", "data"
+// infrastructure is the group of the projects Spark itself depends on.
+const infrastructure = "infrastructure"
 
 // conditions judges Spark from the snapshot s: each thing wrong with it,
 // without since (the agent adds it).
@@ -82,14 +82,14 @@ func conditions(s snapshot.Snapshot) []snapshot.Condition {
 	}
 
 	for _, p := range s.Projects {
-		if p.Tier != infraTier && p.Tier != dataTier {
+		if p.Group != infrastructure {
 			continue
 		}
 		switch p.State {
 		case state.Down:
-			add("project", p.Project, snapshot.Critical, fmt.Sprintf("%s (%s) is down", p.Project, p.Tier))
+			add("project", p.Project, snapshot.Critical, fmt.Sprintf("%s (infrastructure) is down", p.Project))
 		case state.Degraded:
-			add("project", p.Project, snapshot.Warning, fmt.Sprintf("%s (%s) is degraded", p.Project, p.Tier))
+			add("project", p.Project, snapshot.Warning, fmt.Sprintf("%s (infrastructure) is degraded", p.Project))
 		}
 	}
 

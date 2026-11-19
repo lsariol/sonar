@@ -4,7 +4,7 @@
   "projects": [
     {
       "project": "cloudflared",
-      "tier": "infra",
+      "group": "infrastructure",
       "state": "operational",
       "state_since": null,
       "state_since_exact": false,
@@ -15,7 +15,7 @@
     },
     {
       "project": "cron",
-      "tier": null,
+      "group": null,
       "state": "unknown",
       "state_since": null,
       "state_since_exact": false,
@@ -42,7 +42,7 @@
     },
     {
       "project": "lys",
-      "tier": null,
+      "group": null,
       "state": "down",
       "state_since": "2026-10-01T15:04:00Z",
       "state_since_exact": false,
@@ -69,7 +69,7 @@
     },
     {
       "project": "plop",
-      "tier": null,
+      "group": null,
       "state": "operational",
       "state_since": "2026-10-21T13:05:00Z",
       "state_since_exact": true,
@@ -146,7 +146,7 @@
     },
     {
       "project": "sparkdb",
-      "tier": null,
+      "group": null,
       "state": "operational",
       "state_since": null,
       "state_since_exact": false,
@@ -196,7 +196,7 @@
     },
     {
       "project": "cove",
-      "tier": "infra",
+      "group": "infrastructure",
       "state": "degraded",
       "state_since": null,
       "state_since_exact": false,

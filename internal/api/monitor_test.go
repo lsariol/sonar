@@ -41,9 +41,9 @@ func TestMonitorNeedsScope(t *testing.T) {
 
 func monitorSnapshot(at time.Time) snapshot.Snapshot {
 	snap := testSnapshot(at)
-	snap.Projects[1].Tier = "infra" // cloudflared
+	snap.Projects[1].Group = "infrastructure" // cloudflared
 	cores := 0.25
-	snap.Projects = append(snap.Projects, snapshot.Project{Project: "cove", Tier: "infra", State: state.Degraded,
+	snap.Projects = append(snap.Projects, snapshot.Project{Project: "cove", Group: "infrastructure", State: state.Degraded,
 		Evidence: state.ContainerOnly, Services: []snapshot.Service{{Service: "cove", State: state.Degraded, Counted: true,
 			Usage:  snapshot.Usage{CPUCores: &cores},
 			Update: &snapshot.ServiceUpdate{Since: at.Add(-20 * time.Second), From: "v1.0.0", To: "v1.1.0"},
@@ -63,7 +63,7 @@ func monitorSnapshot(at time.Time) snapshot.Snapshot {
 		"database": {State: snapshot.Unavailable, Error: "database: connection refused"},
 	}
 	snap.Conditions = []snapshot.Condition{
-		{ID: "project", Subject: "cove", Level: "warning", Message: "cove (infra) is degraded", Since: at.Add(-3 * time.Minute)},
+		{ID: "project", Subject: "cove", Level: "warning", Message: "cove (infrastructure) is degraded", Since: at.Add(-3 * time.Minute)},
 		{ID: "disk", Level: "warning", Message: "The disk is 89% full: 50.0 GB free of 450.0 GB", Since: at.Add(-time.Hour)},
 	}
 	snap.Attention = []string{"cove/cove: label com.mobasity.public-url=\"https://cove\": must be a public hostname"}
