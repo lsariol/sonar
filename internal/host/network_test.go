@@ -23,7 +23,7 @@ func TestReadNetwork(t *testing.T) {
 	}
 
 	_, err = ReadNetwork(filepath.Join(t.TempDir(), "dev"))
-	if !errors.Is(err, errors.ErrUnsupported) || !strings.Contains(err.Error(), "/proc/1/net:/host/net:ro") {
+	if !errors.Is(err, errors.ErrUnsupported) || !strings.Contains(err.Error(), "/proc/1/net/dev:") {
 		t.Errorf("without the mount: %v, want unsupported and how to mount it", err)
 	}
 

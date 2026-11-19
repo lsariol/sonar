@@ -54,7 +54,7 @@ services:
     volumes:
       - proxy:/run/sonar-proxy
       - state:/var/lib/sonar
-      - /proc/1/net:/host/net:ro        # the host's network counters (Lighthouse policy.json)
+      - /proc/1/net/dev:/host/net/dev:ro   # the host's network counters, this one file only (Lighthouse policy.json)
     healthcheck:
       test: ["CMD", "/sonar", "health", "agent"]
       interval: 10s

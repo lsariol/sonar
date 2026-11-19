@@ -80,7 +80,7 @@ Host access, in `docker-compose.yml`:
 |---|---|---|
 | `sonar-proxy` | `/var/run/docker.sock` | The container list, stats and Docker's disk use |
 | `sonar-proxy` | `/srv/server/storage` (read-only) and `CAP_DAC_READ_SEARCH` | Sizing each project's data folder; the capability reads and lists files, it never writes |
-| `sonar-agent` | `/proc/1/net` (read-only) | The host's network counters; a container's own `/proc/net` shows only its network |
+| `sonar-agent` | `/proc/1/net/dev` (read-only, that one file) | The host's network counters; a container's own `/proc/net` shows only its network |
 
 ## API
 

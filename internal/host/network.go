@@ -12,7 +12,8 @@ import (
 )
 
 // NetDevPath is where the agent reads the host's network counters: the
-// host's /proc/1/net, mounted read-only. A container's own /proc/net/dev
+// host's /proc/1/net/dev, mounted read-only on its own (the rest of
+// /proc/1/net lists the host's connections, routes and neighbours). A container's own /proc/net/dev
 // shows only the container's network.
 const NetDevPath = "/host/net/dev"
 
@@ -28,8 +29,8 @@ type Interface struct {
 func ReadNetwork(path string) ([]Interface, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("host: network: %w: %s isn't there; mount the host's /proc/1/net at %s read-only (/proc/1/net:/host/net:ro)",
-			errors.ErrUnsupported, path, strings.TrimSuffix(path, "/dev"))
+		return nil, fmt.Errorf("host: network: %w: %s isn't there; mount the host's /proc/1/net/dev there read-only (/proc/1/net/dev:%[2]s:ro)",
+			errors.ErrUnsupported, path)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("host: network: %w", err)
