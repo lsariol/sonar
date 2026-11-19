@@ -167,7 +167,9 @@ func (s *Server) Serve(ctx context.Context, addr string) error {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		srv.Shutdown(shutdown)
+		if err := srv.Shutdown(shutdown); err != nil {
+			s.opts.Log.Warn("API shutdown cut short", "err", err)
+		}
 	}()
 	s.opts.Log.Info("API listening", "addr", addr, "consumers", len(s.creds))
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {

@@ -21,4 +21,5 @@ RUN apk add --no-cache ca-certificates \
  && mkdir -p /var/lib/sonar /run/sonar-proxy \
  && chown 10001:10001 /var/lib/sonar
 COPY --from=builder /app/sonar /sonar
+USER 10001:10001
 CMD ["/sonar", "help"]

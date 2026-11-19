@@ -15,6 +15,7 @@ services:
       com.mobasity.group: infrastructure   # Spark depends on it
     command: ["/sonar", "proxy"]
     restart: unless-stopped
+    user: "0:0"                        # the Docker socket is root's; no network, no other privilege
     network_mode: none                 # reached only through the socket in the proxy volume
     read_only: true
     cap_drop: [ALL]

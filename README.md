@@ -33,15 +33,20 @@ One Go binary, run as three containers:
 
 ## Getting started
 
-One-time setup, in the repository folder:
+1. Create the Docker network the containers join, if it doesn't exist: `docker network create spark`.
+2. Create the database and its roles: run `scripts/db/setup.sql` with `psql` as a superuser, giving a password for each login role. It's safe to run again, and never changes the password of a role that exists.
 
-1. `docker network create spark`, if it doesn't exist yet.
-2. On a local Postgres (`localhost:5000` as containers reach it), run `scripts/db/setup.sql` as a superuser with dev passwords for the five roles.
-3. Copy `.env.example` to `.env` (ignored by git) and fill in the dev values.
+   ```bash
+   psql -U postgres -d postgres -v migrator_password=... -v app_password=... \
+     -v reader_password=... -v monitor_password=... -f scripts/db/setup.sql
+   ```
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
+3. Copy `.env.example` to `.env` and fill it in: the four connection strings, as the containers reach Postgres, a Cloudflare API token, and a token of at least 32 random characters for each API consumer (`openssl rand -hex 32`).
+4. Start it:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+   ```
 
 `docker-compose.dev.yml` publishes the API on `127.0.0.1:2501` and keeps what Sonar writes in `.dev/`. All three containers turn `healthy` in `docker ps`, and this returns your local projects:
 
@@ -132,3 +137,7 @@ scripts/test-db.sh down                                    # remove it
 ## Deployment
 
 `docker-compose.yml` is written for [Lighthouse](https://github.com/lsariol/lighthouse), which deploys each version tag. It expects an external Docker network named `spark` and reads its secrets from the environment. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+See [LICENSE](LICENSE).

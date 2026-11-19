@@ -86,7 +86,9 @@ func (s *Server) Serve(ctx context.Context, path string) error {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		srv.Shutdown(shutdown)
+		if err := srv.Shutdown(shutdown); err != nil {
+			s.log.Warn("proxy shutdown cut short", "err", err)
+		}
 	}()
 
 	if s.disk != nil {

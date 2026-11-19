@@ -14,11 +14,8 @@
 -- password is only needed for a role that doesn't exist yet, and every missing
 -- one is checked before anything changes.
 --
--- Run as the Admin superuser (on Spark, over SSH):
---   docker exec -i sparkdb psql -U Admin -d postgres \
---     -v migrator_password="..." -v app_password="..." -v reader_password="..." \
---     -v monitor_password="..." \
---     -f - < scripts/db/setup.sql
+-- Run it as a superuser with psql, giving a password for each role that
+-- doesn't exist yet (README, "Getting started").
 
 \set ON_ERROR_STOP on
 SET client_min_messages = warning;

@@ -102,7 +102,7 @@ func commandTable() []command {
 		{
 			names:   []string{"host"},
 			group:   groupOverview,
-			summary: "The server's CPU, memory, load and disk",
+			summary: "The server: CPU, memory, disk, network, sparkdb",
 			usages: []usage{
 				{"host", "Show the host's latest figures: CPU (overall and per core), memory and swap in use, load averages, how long it has been up, the disk containers are stored on, each network interface's traffic, sparkdb's connections, and what's stored on disk."},
 			},
